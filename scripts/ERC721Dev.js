@@ -52,6 +52,12 @@ async function main() {
 
     let ownerBalance2 = await instanceTestNFT.balanceOf(owner.address);
     console.log("ownerBalance2: ", ownerBalance2.toString());
+
+    for (var i = 0; i < parseInt(ownerBalance2); i++) {
+        const tokenid = await instanceTestNFT.tokenOfOwnerByIndex(owner.address, i);
+        console.log(`index: ${i} tokenId: ${tokenid.toString()}`);
+    }
+
     const nftOwner = await instanceTestNFT.ownerOf(0);
     console.log("nftOwner1: ", nftOwner.toString());
 

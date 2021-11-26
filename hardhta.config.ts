@@ -19,9 +19,15 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
+  default: 'hardhat',
   networks: {
+    hardhat: {
+      allowUnlimitedContractSize: true,
+      blockGasLimit: 0x1ffffffff,
+    },
     rinkeby: {
-      url: 'https://rinkeby.infura.io/v3/04dd3493f83c48de9735b4b29f108b84'
+      allowUnlimitedContractSize: true,
+      url: 'https://rinkeby.infura.io/v3/04dd3493f83c48de9735b4b29f108b84',
     }
   },
   paths: {

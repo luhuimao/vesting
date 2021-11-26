@@ -1,23 +1,21 @@
 pragma solidity >=0.5.17;
 
 /**
- * @title ISablier
- * @author Sablier
+ * @title IVesting1
+ * @author Benjamin
  */
-interface ISablier {
+interface IVesting1 {
     /**
      * @notice Emits when a stream is successfully created.
      */
     event CreateStream(
         uint256 indexed streamId,
         address indexed sender,
-        // address indexed recipient,
         uint256 deposit,
         address tokenAddress,
         uint256 startTime,
         uint256 stopTime,
-        address erc721Address,
-        uint256 tokenId
+        address erc721Address
     );
 
     /**
@@ -25,8 +23,8 @@ interface ISablier {
      */
     event WithdrawFromStream(
         uint256 indexed streamId,
-        address indexed recipient,
-        uint256 amount
+        address indexed recipient
+        // uint256 amount
     );
 
     /**
@@ -67,12 +65,8 @@ interface ISablier {
         uint256 startTime,
         uint256 stopTime,
         address erc721Address,
-        uint256 tokenId
+        uint256 nftTotalSupply
     ) external returns (uint256 streamId);
 
-    function withdrawFromStream(uint256 streamId, uint256 funds)
-        external
-        returns (bool);
-
-    function cancelStream(uint256 streamId) external returns (bool);
+    function withdrawFromStream(uint256 streamId) external returns (bool);
 }

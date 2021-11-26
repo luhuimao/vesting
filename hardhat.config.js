@@ -19,7 +19,12 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
  */
 module.exports = {
   networks: {
+    hardhat: {
+      allowUnlimitedContractSize: true,
+      blockGasLimit: 0x1ffffffff,
+    },
     rinkeby: {
+      allowUnlimitedContractSize: true,
       url: 'https://rinkeby.infura.io/v3/04dd3493f83c48de9735b4b29f108b84'
     }
   },
@@ -43,5 +48,11 @@ module.exports = {
       },
       { version: "0.5.17" }
     ],
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200
+      }
+    }
   },
 };
