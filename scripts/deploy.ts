@@ -8,8 +8,9 @@ import { Vesting1 } from '../typechain/Vesting1';
 import { Vesting2 } from '../typechain/Vesting2';
 import { ERC20PresetFixedSupply } from '../typechain/ERC20PresetFixedSupply';
 import * as config from '../.config';
-import { Contract } from 'ethers';
+import { Contract, ethers } from 'ethers';
 import * as boutils from './boutils';
+import Web3 from "web3";
 
 let main = async () => {
     console.log('network:', network.name, (await hre.ethers.provider.getNetwork()).chainId);
@@ -53,23 +54,24 @@ let main = async () => {
         boutils.ReplaceLine('.config.ts', key + '.*' + flag, key + ' = "' + instanceVesting1.address + '"; ' + flag);
     }
 
-     //Deploy Vesting2
-     const vesting2Address = config.getVesting2AddressByNetwork(network.name);
-     let instanceVesting2: Vesting2;
-     if (vesting2Address) {
-         instanceVesting2 = (await hre.ethers.getContractFactory('Vesting2')).connect(owner).attach(vesting2Address) as Vesting2;
-         console.log('reuse Vesting2 address:', instanceVesting2.address);
-     } else {
-         let Vesting2ContractFactory = await hre.ethers.getContractFactory('Vesting2');
-         instanceVesting2 = (await Vesting2ContractFactory.connect(owner).deploy({
-             gasLimit: await hre.ethers.provider.estimateGas(Vesting2ContractFactory.getDeployTransaction()),
-         })) as Vesting2;
-         console.log('new Vesting2 address:', instanceVesting2.address);
- 
-         let flag = '\\/\\/REPLACE_FLAG';
-         let key = 'VESTING1_ADDRESS_' + network.name.toUpperCase();
-         boutils.ReplaceLine('.config.ts', key + '.*' + flag, key + ' = "' + instanceVesting2.address + '"; ' + flag);
-     }
+    //Deploy Vesting2
+    const vesting2Address = config.getVesting2AddressByNetwork(network.name);
+    let instanceVesting2: Vesting2;
+    if (vesting2Address) {
+        instanceVesting2 = (await hre.ethers.getContractFactory('Vesting2')).connect(owner).attach(vesting2Address) as Vesting2;
+        console.log('reuse Vesting2 address:', instanceVesting2.address);
+    } else {
+        let Vesting2ContractFactory = await hre.ethers.getContractFactory('Vesting2');
+        instanceVesting2 = (await Vesting2ContractFactory.connect(owner).deploy({
+            gasLimit: await hre.ethers.provider.estimateGas(Vesting2ContractFactory.getDeployTransaction()),
+        })) as Vesting2;
+        console.log('new Vesting2 address:', instanceVesting2.address);
+
+        let flag = '\\/\\/REPLACE_FLAG';
+        let key = 'VESTING2_ADDRESS_' + network.name.toUpperCase();
+        boutils.ReplaceLine('.config.ts', key + '.*' + flag, key + ' = "' + instanceVesting2.address + '"; ' + flag);
+    }
+
 
 
     let instanceTestNFT: TestNFT;
@@ -108,6 +110,78 @@ let main = async () => {
         boutils.ReplaceLine('.config.ts', key + '.*' + flag, key + ' = "' + instanceERC20PresetFixedSupply.address + '"; ' + flag);
     }
 
+    console.log("/*****************************************************************************************/");
+    console.log("/************************************************createStream2*****************************/");
+    console.log("/*****************************************************************************************/");
+
+    let blocktimestamp = (await hre.ethers.provider.getBlock("latest")).timestamp;
+    console.log(`current timestamp: ${blocktimestamp.toString()}`);
+    const startTime = blocktimestamp + 1000;
+    const stopTime = startTime + 2000;
+
+
+    let tmpr = await instanceVesting2.createStream2(
+        2000,
+        instanceERC20PresetFixedSupply.address,
+        startTime,
+        stopTime,
+        instanceTestNFT.address,
+        [
+            { tokenid: 0, share: 1000 },
+            { tokenid: 1, share: 2000 },
+            { tokenid: 2, share: 3000 },
+            { tokenid: 3, share: 4000 },
+            { tokenid: 4, share: 5000 },
+            { tokenid: 5, share: 6000 },
+            { tokenid: 6, share: 7000 },
+            { tokenid: 7, share: 8000 },
+            { tokenid: 8, share: 9000 },
+            { tokenid: 9, share: 10000 },
+            { tokenid: 10, share: 6000 },
+            { tokenid: 11, share: 7000 },
+            { tokenid: 12, share: 8000 },
+            { tokenid: 13, share: 9000 },
+            { tokenid: 14, share: 10000 }
+        ], {
+        gasPrice: gasprice,
+        gasLimit: 4000000,
+    }
+    );
+
+    tmpr = await instanceVesting2.createStream21(
+        2000,
+        instanceERC20PresetFixedSupply.address,
+        startTime,
+        stopTime,
+        instanceTestNFT.address,
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]
+        , {
+            gasPrice: gasprice,
+            gasLimit: 4000000,
+        }
+    );
+    const rel = await instanceVesting2.getStream2(200000);
+    console.log(`sender:${rel.sender}`);
+    console.log(`sender:${rel.tokenAddress}`);
+    console.log(`sender:${rel.startTime}`);
+    console.log(`sender:${rel.stopTime}`);
+    console.log(`sender:${rel.remainingBalance}`);
+    console.log(`sender:${rel.ratePerSecond}`);
+    console.log(`sender:${rel.erc721Address}`);
+    // let latest_block = await hre.ethers.providers.getBlockNumber();
+    // let historical_block = latest_block - 100;
+    // const data_events = await instanceVesting2.getPastEvents(
+    //     'CreateStream2', // change if your looking for a different event
+    //     { fromBlock: historical_block, toBlock: 'latest' }
+    // );
+    // let stream2id = 0;
+    // if (data_events) {
+    //     for (var i = 0; i < data_events.length; i++) {
+    //         stream2id = data_events[i]['returnValues']['stream2Id'];
+    //         console.log(`stream2id: ${stream2id.toString()}`);
+    //     }
+    // }
 
     // await boutils.Sleep(10000);
 

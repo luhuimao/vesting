@@ -80,30 +80,33 @@ async function main() {
     console.log("/*****************************************************************************************/");
     console.log("/************************************************createStream2*****************************/");
     console.log("/*****************************************************************************************/");
-    let tmpr = await instanceVesting2.createStream2(
+    let tmpr = await instanceVesting2.createStream21(
         2000,
         instanceTESTERC20.address,
         startTime,
         stopTime,
         instanceTestNFT.address,
-        [
-            { tokenid: 0, share: 1000 },
-            { tokenid: 1, share: 2000 },
-            { tokenid: 2, share: 3000 },
-            { tokenid: 3, share: 4000 },
-            { tokenid: 4, share: 5000 },
-            { tokenid: 5, share: 6000 },
-            { tokenid: 6, share: 7000 },
-            { tokenid: 7, share: 8000 },
-            { tokenid: 8, share: 9000 },
-            { tokenid: 9, share: 10000 },
-            { tokenid: 10, share: 6000 },
-            { tokenid: 11, share: 7000 },
-            { tokenid: 12, share: 8000 },
-            { tokenid: 13, share: 9000 },
-            { tokenid: 14, share: 10000 }
-        ]
+        [0, 1, 2, 3, 4],
+        [1000, 2000, 3000, 4000, 5000],
+        // [
+        // { tokenid: 0, share: 1000 },
+        // { tokenid: 1, share: 2000 },
+        // { tokenid: 2, share: 3000 },
+        // { tokenid: 3, share: 4000 },
+        // { tokenid: 4, share: 5000 },
+        // { tokenid: 5, share: 6000 },
+        // { tokenid: 6, share: 7000 },
+        // { tokenid: 7, share: 8000 },
+        // { tokenid: 8, share: 9000 },
+        // { tokenid: 9, share: 10000 },
+        // { tokenid: 10, share: 6000 },
+        // { tokenid: 11, share: 7000 },
+        // { tokenid: 12, share: 8000 },
+        // { tokenid: 13, share: 9000 },
+        // { tokenid: 14, share: 10000 }
+        // ]
     );
+
 
     await instanceTESTERC20.transfer(user1.address, 1);
     await instanceTESTERC20.connect(user1).transfer(owner.address, 1);
