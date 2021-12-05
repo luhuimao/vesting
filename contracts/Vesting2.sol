@@ -16,6 +16,7 @@ import "hardhat/console.sol";
  */
 contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
     using SafeERC20 for IERC20;
+    using SafeMath for uint256;
     using VestingTypes for VestingTypes.VestingStream;
     /*** Storage Properties ***/
 
@@ -144,19 +145,8 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
         returns (uint256 balance)
     {
         VestingTypes.VestingStream2 storage stream2 = stream2s[stream2Id];
-        BalanceOfLocalVars memory vars;
 
-        uint256 delta = deltaOf2(stream2Id);
-        (vars.mathErr, vars.recipientBalance) = mulUInt(
-            delta,
-            stream2.ratePerSecond
-        );
-        require(
-            vars.mathErr == MathError.NO_ERROR,
-            "recipient balance calculation error"
-        );
         uint256 totalBalance = 0;
-
         address nftAddress = stream2.erc721Address;
         uint256 nftBalance = ERC721(nftAddress).balanceOf(who);
         if (nftBalance > 0) {
@@ -164,24 +154,30 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
                 //for loop
                 uint256 tokenId = ERC721(stream2.erc721Address)
                     .tokenOfOwnerByIndex(who, j);
-                uint256 share = stream2.nftShares[tokenId];
-                (vars.mathErr, vars.recipientBalance) = mulUInt(
-                    vars.recipientBalance,
-                    share
-                );
-                (vars.mathErr, vars.recipientBalance) = divUInt(
-                    vars.recipientBalance,
-                    1e12
-                );
-                (vars.mathErr, vars.recipientBalance) = subUInt(
-                    vars.recipientBalance,
-                    stream2.claimedAmount[tokenId]
-                );
-                totalBalance += vars.recipientBalance;
+
+                uint256 balance = balanceForTokenId(stream2Id, tokenId);
+                totalBalance += balance;
             }
             return totalBalance;
         }
         return 0;
+    }
+
+    function balanceForTokenId(uint256 stream2Id, uint256 tokenId)
+        internal
+        view
+        returns (uint256)
+    {
+        VestingTypes.VestingStream2 storage stream2 = stream2s[stream2Id];
+        uint256 delta = deltaOf2(stream2Id);
+        // console.log("CONTRACT LOG => delta: ", delta);
+        uint256 totalBalance = delta.mul(stream2.ratePerSecond);
+        uint256 share = stream2.nftShares[tokenId];
+        uint256 tokenidBalance = totalBalance
+            .mul(share)
+            .div(stream2.totalShares)
+            .sub(stream2.claimedAmount[tokenId]);
+        return tokenidBalance;
     }
 
     function balanceOfSender2(uint256 stream2Id)
@@ -223,93 +219,6 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
      * @param stopTime The unix timestamp for when the stream stops.
      * @return The uint256 id of the newly created stream.
      */
-    function createStream2(
-        uint256 deposit,
-        address tokenAddress,
-        uint256 startTime,
-        uint256 stopTime,
-        address erc721Address,
-        VestingTypes.NFTShares[] memory nftShares
-    ) public returns (uint256) {
-        require(erc721Address != address(0x00), "nftAddress is zero address");
-        require(deposit > 0, "deposit is zero");
-        require(nftShares.length > 0, "nftShares length is zero");
-        require(
-            startTime >= block.timestamp,
-            "start time before block.timestamp"
-        );
-        require(stopTime > startTime, "stop time before the start time");
-
-        CreateStreamLocalVars memory vars;
-
-        (vars.mathErr, vars.duration) = subUInt(stopTime, startTime);
-        /* `subUInt` can only return MathError.INTEGER_UNDERFLOW but we know `stopTime` is higher than `startTime`. */
-        assert(vars.mathErr == MathError.NO_ERROR);
-
-        /* Without this, the rate per second would be zero. */
-        require(deposit >= vars.duration, "deposit smaller than time delta");
-
-        /* This condition avoids dealing with remainders */
-        // require(
-        //     deposit % vars.duration == 0,
-        //     "deposit not multiple of time delta"
-        // );
-
-        (vars.mathErr, vars.ratePerSecond) = divUInt(deposit, vars.duration);
-        /* `divUInt` can only return MathError.DIVISION_BY_ZERO but we know `duration` is not zero. */
-        assert(vars.mathErr == MathError.NO_ERROR);
-
-        /* Create and store the stream2 object. */
-        uint256 stream2Id = nextStream2Id;
-        uint256 totalShares = 0;
-        for (uint256 i = 0; i < nftShares.length; i++) {
-            (vars.mathErr, totalShares) = addUInt(
-                totalShares,
-                nftShares[i].share
-            );
-            assert(vars.mathErr == MathError.NO_ERROR);
-        }
-        for (uint256 i = 0; i < nftShares.length; i++) {
-            uint256 perShare;
-            (vars.mathErr, perShare) = mulUInt(nftShares[i].share, 1e12);
-            (vars.mathErr, perShare) = divUInt(perShare, totalShares);
-            stream2s[stream2Id].nftShares[nftShares[i].tokenid] = perShare;
-        }
-
-        stream2s[stream2Id].remainingBalance = deposit;
-        stream2s[stream2Id].deposit = deposit;
-        stream2s[stream2Id].isEntity = true;
-        stream2s[stream2Id].ratePerSecond = vars.ratePerSecond;
-        stream2s[stream2Id].sender = msg.sender;
-        stream2s[stream2Id].startTime = startTime;
-        stream2s[stream2Id].stopTime = stopTime;
-        stream2s[stream2Id].tokenAddress = tokenAddress;
-        stream2s[stream2Id].erc721Address = erc721Address;
-
-        /* Increment the next stream id. */
-        (vars.mathErr, nextStream2Id) = addUInt(nextStream2Id, uint256(1));
-        require(
-            vars.mathErr == MathError.NO_ERROR,
-            "next stream id calculation error"
-        );
-
-        IERC20(tokenAddress).safeTransferFrom(
-            msg.sender,
-            address(this),
-            deposit
-        );
-        emit CreateStream2(
-            stream2Id,
-            msg.sender,
-            deposit,
-            tokenAddress,
-            startTime,
-            stopTime,
-            erc721Address
-        );
-        return stream2Id;
-    }
-
     function createStream21(
         uint256 deposit,
         address tokenAddress,
@@ -359,11 +268,9 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
             (vars.mathErr, totalShares) = addUInt(totalShares, nftShares[i]);
             assert(vars.mathErr == MathError.NO_ERROR);
         }
+
         for (uint256 i = 0; i < nftShares.length; i++) {
-            uint256 perShare;
-            (vars.mathErr, perShare) = mulUInt(nftShares[i], 1e12);
-            (vars.mathErr, perShare) = divUInt(perShare, totalShares);
-            stream2s[stream2Id].nftShares[tokenIds[i]] = perShare;
+            stream2s[stream2Id].nftShares[tokenIds[i]] = nftShares[i];
         }
 
         stream2s[stream2Id].remainingBalance = deposit;
@@ -375,6 +282,7 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
         stream2s[stream2Id].stopTime = stopTime;
         stream2s[stream2Id].tokenAddress = tokenAddress;
         stream2s[stream2Id].erc721Address = erc721Address;
+        stream2s[stream2Id].totalShares = totalShares;
 
         /* Increment the next stream id. */
         (vars.mathErr, nextStream2Id) = addUInt(nextStream2Id, uint256(1));
@@ -424,41 +332,39 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
         );
 
         uint256 balance = balanceOf2(stream2Id, msg.sender);
+
         require(balance > 0, "withdrawable balance is zero");
+       
+        uint256 remainingBalance = stream2.remainingBalance;
+        stream2s[stream2Id].remainingBalance = remainingBalance.sub(balance);
 
-        MathError mathErr;
-
-        (mathErr, stream2s[stream2Id].remainingBalance) = subUInt(
-            stream2.remainingBalance,
-            balance
-        );
-
+        uint256 realBalance = 0;
         for (uint256 i = 0; i < getNFTBalance2(stream2Id, msg.sender); i++) {
             uint256 tokenId = ERC721(stream2.erc721Address).tokenOfOwnerByIndex(
                 msg.sender,
                 i
             );
-            uint256 tem = 0;
-            (mathErr, tem) = mulUInt(balance, stream2.nftShares[tokenId]);
-            (mathErr, tem) = divUInt(tem, 1e12);
-            stream2s[stream2Id].claimedAmount[tokenId] += tem;
+            uint256 balanceOfTokenId = balanceForTokenId(stream2Id, tokenId);
+            realBalance += balanceOfTokenId;
+          
+            stream2s[stream2Id].claimedAmount[tokenId] += balanceOfTokenId;
         }
+        require(realBalance == balance, "Vesting ERROR");
         /**
          * `subUInt` can only return MathError.INTEGER_UNDERFLOW but we know that `remainingBalance` is at least
          * as big as `amount`.
          */
-        assert(mathErr == MathError.NO_ERROR);
 
         // if (stream2s[stream2Id].remainingBalance == 0)
         //     delete stream2s[stream2Id];
 
-        uint256 remainingBalance = IERC20(stream2.tokenAddress).balanceOf(
+        uint256 vaultRemainingBalance = IERC20(stream2.tokenAddress).balanceOf(
             address(this)
         );
-        if (balance > remainingBalance) {
+        if (balance > vaultRemainingBalance) {
             IERC20(stream2.tokenAddress).safeTransfer(
                 msg.sender,
-                remainingBalance
+                vaultRemainingBalance
             );
         } else {
             IERC20(stream2.tokenAddress).safeTransfer(msg.sender, balance);

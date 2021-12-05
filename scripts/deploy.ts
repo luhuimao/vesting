@@ -119,36 +119,7 @@ let main = async () => {
     const startTime = blocktimestamp + 1000;
     const stopTime = startTime + 2000;
 
-
-    let tmpr = await instanceVesting2.createStream2(
-        2000,
-        instanceERC20PresetFixedSupply.address,
-        startTime,
-        stopTime,
-        instanceTestNFT.address,
-        [
-            { tokenid: 0, share: 1000 },
-            { tokenid: 1, share: 2000 },
-            { tokenid: 2, share: 3000 },
-            { tokenid: 3, share: 4000 },
-            { tokenid: 4, share: 5000 },
-            { tokenid: 5, share: 6000 },
-            { tokenid: 6, share: 7000 },
-            { tokenid: 7, share: 8000 },
-            { tokenid: 8, share: 9000 },
-            { tokenid: 9, share: 10000 },
-            { tokenid: 10, share: 6000 },
-            { tokenid: 11, share: 7000 },
-            { tokenid: 12, share: 8000 },
-            { tokenid: 13, share: 9000 },
-            { tokenid: 14, share: 10000 }
-        ], {
-        gasPrice: gasprice,
-        gasLimit: 4000000,
-    }
-    );
-
-    tmpr = await instanceVesting2.createStream21(
+    let tmpr = await instanceVesting2.createStream21(
         2000,
         instanceERC20PresetFixedSupply.address,
         startTime,
@@ -158,7 +129,7 @@ let main = async () => {
         [10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]
         , {
             gasPrice: gasprice,
-            gasLimit: 4000000,
+            gasLimit: 7000000,
         }
     );
     const rel = await instanceVesting2.getStream2(200000);

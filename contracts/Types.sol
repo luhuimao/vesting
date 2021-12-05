@@ -48,6 +48,7 @@ library VestingTypes {
         address tokenAddress;
         bool isEntity;
         address erc721Address;
+        uint256 totalShares;
         // NFTShares[] nftShares;
         //tokenId => share
         mapping(uint256 => uint256) nftShares;
