@@ -55,7 +55,7 @@ async function main() {
     /*****************************************************************************************/
     /*******************************mint 10 ERC721 Token To owner*****************************/
     /*****************************************************************************************/
-    await instanceTestNFT.mint(1);
+    await instanceTestNFT.mint(100);
     let ownerERC721Balance = await instanceTestNFT.balanceOf(owner.address);
     console.log("ownerERC721Balance: ", ownerERC721Balance.toString());
 
@@ -75,12 +75,11 @@ async function main() {
     console.log("/************************************************createStream*****************************/");
     console.log("/*****************************************************************************************/");
     let tmpr = await instanceVesting1.createStream(
-        200,
+        20000,
         instanceTESTERC20.address,
         startTime,
         stopTime,
-        instanceTestNFT.address,
-        10
+        instanceTestNFT.address
     );
 
     await instanceTESTERC20.transfer(user1.address, 1);
@@ -94,8 +93,12 @@ async function main() {
     }
     // console.log("rel: ", rel);
 
-    const streamInfo = await instanceVesting1.getStream(100000);
-    console.log(`streamInfo: ${streamInfo}`);
+    let streamInfo = await instanceVesting1.getStream(100000);
+    console.log(`streamInfo.deposit: ${streamInfo.deposit}`);
+    console.log(`streamInfo.remainingBalance: ${streamInfo.remainingBalance}`);
+    console.log(`streamInfo.ratePerSecond: ${streamInfo.ratePerSecond}`);
+    console.log(`streamInfo.nftTotalSupply: ${streamInfo.nftTotalSupply}`);
+
 
     await instanceTESTERC20.transfer(user1.address, 1);
     await instanceTESTERC20.connect(user1).transfer(owner.address, 1);
@@ -110,17 +113,22 @@ async function main() {
     console.log("user2VestingBalance: ", user2Balance.toString());
 
     let senderBalance = await instanceVesting1.balanceOfSender(100000);
-    console.log(`senderBalance: ${senderBalance.toString()}`);
+    console.log(`senderBalance: ${senderBalance}`);
 
-    let ownerTESTERC20Balance = await instanceTESTERC20.balanceOf(owner.address);
-    console.log("ownerTESTERC20Balance1: ", ownerTESTERC20Balance.toString());
+    let ownerTESTERC20Balance1 = await instanceTESTERC20.balanceOf(owner.address);
+    console.log("ownerTESTERC20Balance1: ", ownerTESTERC20Balance1.toString());
 
     blocktimestamp = (await hre.ethers.provider.getBlock("latest")).timestamp;
-    console.log(`current timestamp: ${blocktimestamp.toString()}`);
+    console.log(`current timestamp: ${blocktimestamp}`);
 
+    console.log('///////////////////////////////////////owner withdraw///////////////////////////////////////////////');
     await instanceVesting1.connect(owner).withdrawFromStream(100000);
-    ownerTESTERC20Balance = await instanceTESTERC20.balanceOf(owner.address);
-    console.log("ownerTESTERC20Balance2: ", ownerTESTERC20Balance.toString());
+    ownerTESTERC20Balance2 = await instanceTESTERC20.balanceOf(owner.address);
+    console.log("ownerTESTERC20Balance2: ", ownerTESTERC20Balance2.toString());
+
+    console.log("owner withdraw amount: ", ownerTESTERC20Balance2 - ownerTESTERC20Balance1);
+    streamInfo = await instanceVesting1.getStream(100000);
+    console.log(`streamInfo.remainingBalance: ${streamInfo.remainingBalance}`);
 
     console.log("/*****************************************************************************************/")
     console.log("/*************************transfer NFT #0 from owner to user1*****************************/");
@@ -139,20 +147,23 @@ async function main() {
     console.log("user1VestingBalance: ", user1Balance.toString());
     console.log("user2VestingBalance: ", user2Balance.toString());
 
-    let user1TESTERC20Balance = await instanceTESTERC20.balanceOf(user1.address);
-    console.log("user1TestERC20Balance1: ", user1TESTERC20Balance.toString());
+    let user1TestERC20Balance1 = await instanceTESTERC20.balanceOf(user1.address);
+    console.log("user1TestERC20Balance1: ", user1TestERC20Balance1.toString());
 
     blocktimestamp = (await hre.ethers.provider.getBlock("latest")).timestamp;
     console.log(`current timestamp: ${blocktimestamp.toString()}`);
 
+    console.log('///////////////////////////////////////user1 withdraw///////////////////////////////////////////////');
     await instanceVesting1.connect(user1).withdrawFromStream(100000);
-    user1TESTERC20Balance = await instanceTESTERC20.balanceOf(user1.address);
-    console.log("user1TestERC20Balance2: ", user1TESTERC20Balance.toString());
+    user1TestERC20Balance2 = await instanceTESTERC20.balanceOf(user1.address);
+    console.log("user1TestERC20Balance2: ", user1TestERC20Balance2.toString());
+    console.log("use1 withdraw amount: ", user1TestERC20Balance2 - user1TestERC20Balance1);
 
     senderBalance = await instanceVesting1.balanceOfSender(100000);
     console.log(`senderVestingBalance: ${senderBalance.toString()}`);
 
-
+    streamInfo = await instanceVesting1.getStream(100000);
+    console.log(`streamInfo.remainingBalance: ${streamInfo.remainingBalance}`);
 
     console.log("/*****************************************************************************************/")
     console.log("/*************************transfer NFT #0 from user1 to user2*****************************/");
@@ -177,18 +188,22 @@ async function main() {
     console.log("/*****************************************************************************************/")
     console.log("/*************************withdraw user2*****************************/");
     console.log("/*****************************************************************************************/");
-    let user2TESTERC20Balance = await instanceTESTERC20.balanceOf(user2.address);
-    console.log(`before withdraw user2TESTERC20Balance: ${user2TESTERC20Balance.toString()}`);
-
+    let user2TESTERC20Balance1 = await instanceTESTERC20.balanceOf(user2.address);
+    console.log(`before withdraw user2TESTERC20Balance: ${user2TESTERC20Balance1.toString()}`);
     blocktimestamp = (await hre.ethers.provider.getBlock("latest")).timestamp;
     console.log(`current timestamp: ${blocktimestamp.toString()}`);
 
+    console.log('///////////////////////////////////////user2 withdraw///////////////////////////////////////////////');
     rel = await instanceVesting1.connect(user2).withdrawFromStream(100000);
-    user2TESTERC20Balance = await instanceTESTERC20.balanceOf(user2.address);
-    console.log(`after withdraw user2TESTERC20Balance: ${user2TESTERC20Balance.toString()}`);
+    user2TESTERC20Balance2 = await instanceTESTERC20.balanceOf(user2.address);
+    console.log(`after withdraw user2TESTERC20Balance: ${user2TESTERC20Balance2.toString()}`);
+    console.log("user2 withdraw amount: ", user2TESTERC20Balance2 - user2TESTERC20Balance1);
 
     senderBalance = await instanceVesting1.balanceOfSender(100000);
     console.log(`senderVestingBalance: ${senderBalance.toString()}`);
+
+    streamInfo = await instanceVesting1.getStream(100000);
+    console.log(`streamInfo.remainingBalance: ${streamInfo.remainingBalance}`);
 
     console.log("/*****************************************************************************************/")
     console.log("/*************************sender withdraw*****************************/");
@@ -196,11 +211,15 @@ async function main() {
     senderBalance = await instanceVesting1.balanceOfSender(100000);
     console.log(`senderVestingBalance: ${senderBalance.toString()}`);
 
-    ownerTESTERC20Balance = await instanceTESTERC20.balanceOf(owner.address);
-    console.log("ownerTESTERC20Balance1: ", ownerTESTERC20Balance.toString());
+    ownerTESTERC20Balance1 = await instanceTESTERC20.balanceOf(owner.address);
+    console.log("ownerTESTERC20Balance1: ", ownerTESTERC20Balance1.toString());
     await instanceVesting1.senderWithdrawFromStream(100000);
-    ownerTESTERC20Balance = await instanceTESTERC20.balanceOf(owner.address);
-    console.log("ownerTESTERC20Balance2: ", ownerTESTERC20Balance.toString());
+    ownerTESTERC20Balance2 = await instanceTESTERC20.balanceOf(owner.address);
+    console.log("ownerTESTERC20Balance2: ", ownerTESTERC20Balance2.toString());
+    console.log("sender withdraw amount: ", ownerTESTERC20Balance2 - ownerTESTERC20Balance1);
+
+    streamInfo = await instanceVesting1.getStream(100000);
+    console.log(`streamInfo.remainingBalance: ${streamInfo.remainingBalance}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

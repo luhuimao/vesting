@@ -64,8 +64,7 @@ interface IVesting1 {
         address tokenAddress,
         uint256 startTime,
         uint256 stopTime,
-        address erc721Address,
-        uint256 nftTotalSupply
+        address erc721Address
     ) external returns (uint256 streamId);
 
     function withdrawFromStream(uint256 streamId) external returns (bool);

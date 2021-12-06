@@ -403,8 +403,8 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
         assert(mathErr == MathError.NO_ERROR);
 
         IERC20(stream2.tokenAddress).safeTransfer(msg.sender, balance);
-        if (stream2s[stream2Id].remainingBalance == 0)
-            delete stream2s[stream2Id];
+        // if (stream2s[stream2Id].remainingBalance == 0)
+        //     delete stream2s[stream2Id];
         return true;
     }
 }

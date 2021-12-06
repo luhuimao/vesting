@@ -16,6 +16,7 @@ import "hardhat/console.sol";
  */
 contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
     using SafeERC20 for IERC20;
+    using SafeMath for uint256;
     using VestingTypes for VestingTypes.VestingStream;
     /*** Storage Properties ***/
 
@@ -149,17 +150,6 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
         VestingTypes.VestingStream memory stream = streams[streamId];
         BalanceOfLocalVars memory vars;
 
-        uint256 delta = deltaOf(streamId);
-        //each nft's withdrawable balance in realtime
-        (vars.mathErr, vars.recipientBalance) = mulUInt(
-            delta,
-            stream.ratePerSecond
-        );
-        require(
-            vars.mathErr == MathError.NO_ERROR,
-            "recipient balance calculation error"
-        );
-
         uint256 totalBalance = 0;
 
         uint256 len = getNFTBalance(streamId, who);
@@ -168,17 +158,38 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
                 //for loop
                 uint256 tokenId = ERC721(stream.erc721Address)
                     .tokenOfOwnerByIndex(who, j);
-                (vars.mathErr, vars.recipientBalance) = subUInt(
-                    vars.recipientBalance,
-                    investorWithdrawalAmount[streamId][tokenId]
-                );
-                totalBalance += vars.recipientBalance;
+                uint256 singgleBalance = getSingleNFTBalance(streamId, tokenId);
+                totalBalance += singgleBalance;
             }
         }
 
-        // console.log("totalBalance:", totalBalance);
         if (getNFTBalance(streamId, who) > 0) return totalBalance;
         return 0;
+    }
+
+    function getSingleNFTBalance(uint256 streamId, uint256 tokenId)
+        public
+        view
+        streamExists(streamId)
+        returns (uint256 balance)
+    {
+        VestingTypes.VestingStream memory stream = streams[streamId];
+        BalanceOfLocalVars memory vars;
+
+        uint256 delta = deltaOf(streamId);
+        uint256 totalBalance;
+        (vars.mathErr, totalBalance) = mulUInt(delta, stream.ratePerSecond);
+
+        require(
+            vars.mathErr == MathError.NO_ERROR,
+            "recipient balance calculation error"
+        );
+        uint256 availableBalance;
+        (vars.mathErr, availableBalance) = subUInt(
+            totalBalance,
+            investorWithdrawalAmount[streamId][tokenId]
+        );
+        return availableBalance;
     }
 
     function balanceOfSender(uint256 streamId)
@@ -242,12 +253,16 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
         address tokenAddress,
         uint256 startTime,
         uint256 stopTime,
-        address erc721Address,
-        uint256 nftTotalSupply
-    ) public override returns (uint256) {
+        address erc721Address
+    )
+        public
+        override
+        returns (
+            // uint256 nftTotalSupply
+            uint256
+        )
+    {
         require(erc721Address != address(0x00), "nftAddress is zero address");
-        // require(recipient != address(this), "stream to the contract itself");
-        // require(recipient != msg.sender, "stream to the caller");
         require(deposit > 0, "deposit is zero");
         require(
             startTime >= block.timestamp,
@@ -260,6 +275,9 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
         /* `subUInt` can only return MathError.INTEGER_UNDERFLOW but we know `stopTime` is higher than `startTime`. */
         assert(vars.mathErr == MathError.NO_ERROR);
 
+        uint256 nftTotalSupply = TestNFT(erc721Address).MAX_AMOUNT();
+        require(nftTotalSupply >= 0, "ERROR: nftTotalSupply Is Zero");
+
         (MathError err, uint256 totalDuration) = mulUInt(
             vars.duration,
             nftTotalSupply
@@ -270,12 +288,13 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
         require(deposit >= totalDuration, "deposit smaller than time delta");
 
         /* This condition avoids dealing with remainders */
-        require(
-            deposit % totalDuration == 0,
-            "deposit not multiple of time delta"
-        );
+        // require(
+        //     deposit % totalDuration == 0,
+        //     "deposit not multiple of time delta"
+        // );
 
         (vars.mathErr, vars.ratePerSecond) = divUInt(deposit, totalDuration);
+
         /* `divUInt` can only return MathError.DIVISION_BY_ZERO but we know `duration` is not zero. */
         assert(vars.mathErr == MathError.NO_ERROR);
 
@@ -299,6 +318,7 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
         arrs[2] = deposit;
         arrs[3] = startTime;
         arrs[4] = stopTime;
+
         streams[streamId].addStream(
             // deposit,
             // vars.ratePerSecond,
@@ -369,28 +389,39 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
             balance
         );
 
-        uint256 withdrawAmountPerNFT = 0;
-        (mathErr, withdrawAmountPerNFT) = divUInt(
-            balance,
-            getNFTBalance(streamId, msg.sender)
-        );
-
+        uint256 realAvailableBalance;
         for (uint256 i = 0; i < getNFTBalance(streamId, msg.sender); i++) {
             uint256 tokenId = ERC721(stream.erc721Address).tokenOfOwnerByIndex(
                 msg.sender,
                 i
             );
+            uint256 withdrawAmountPerNFT;
+            withdrawAmountPerNFT = getSingleNFTBalance(streamId, tokenId);
             investorWithdrawalAmount[streamId][tokenId] += withdrawAmountPerNFT;
+          
+            realAvailableBalance += withdrawAmountPerNFT;
         }
+        require(realAvailableBalance == balance, "Withdraw ERROR");
         /**
          * `subUInt` can only return MathError.INTEGER_UNDERFLOW but we know that `remainingBalance` is at least
          * as big as `amount`.
          */
         assert(mathErr == MathError.NO_ERROR);
 
-        if (streams[streamId].remainingBalance == 0) delete streams[streamId];
+        // if (streams[streamId].remainingBalance == 0) delete streams[streamId];
 
-        IERC20(stream.tokenAddress).safeTransfer(msg.sender, balance);
+        uint256 vaultRemainingBalance = IERC20(stream.tokenAddress).balanceOf(
+            address(this)
+        );
+        if (balance > vaultRemainingBalance) {
+            IERC20(stream.tokenAddress).safeTransfer(
+                msg.sender,
+                vaultRemainingBalance
+            );
+        } else {
+            IERC20(stream.tokenAddress).safeTransfer(msg.sender, balance);
+        }
+
         emit WithdrawFromStream(streamId, msg.sender);
         return true;
     }
@@ -424,7 +455,7 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
          */
         assert(mathErr == MathError.NO_ERROR);
 
-        if (streams[streamId].remainingBalance == 0) delete streams[streamId];
+        // if (streams[streamId].remainingBalance == 0) delete streams[streamId];
 
         IERC20(stream.tokenAddress).safeTransfer(msg.sender, balance);
         return true;
