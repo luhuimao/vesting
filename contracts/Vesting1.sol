@@ -18,6 +18,7 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
     using VestingTypes for VestingTypes.VestingStream;
+
     /*** Storage Properties ***/
 
     /**
@@ -28,10 +29,16 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
      * @notice The stream objects identifiable by their unsigned integer ids.
      */
     mapping(uint256 => VestingTypes.VestingStream) private streams;
+
+    // mapping(uint256 => VestingTypes.VestingStream1) private streams1;
+
     // streamID -> tokenID -> withdrawAmount
     mapping(uint256 => mapping(uint256 => uint256))
         private investorWithdrawalAmount;
 
+    // streamID -> NFTAddress -> tokenID -> withdrawAmount
+    mapping(uint256 => mapping(address => mapping(uint256 => uint256)))
+        private NFTTokenIdWithdrawalAmount;
     /*** Modifiers ***/
 
     /**
@@ -42,6 +49,29 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
             msg.sender == streams[streamId].sender ||
                 getNFTBalance(streamId, msg.sender) > 0,
             "caller is not the sender or the recipient of the stream"
+        );
+        _;
+    }
+
+    /**
+     * @dev Throws if the caller is not the owner of the spacified tokenId of the stream2.
+     */
+    modifier onlyNFTOwner(uint256 streamId, uint256 tokenId) {
+        address nftAddress = streams[streamId].erc721Address;
+        require(
+            msg.sender == ERC721(nftAddress).ownerOf(tokenId),
+            "caller is not the owner of the tokenId"
+        );
+        _;
+    }
+
+    /**
+     * @dev Throws if the caller is not the owner of the spacified tokenId of the stream2.
+     */
+    modifier onlyNFTOwner1(address nftAddress, uint256 tokenId) {
+        require(
+            msg.sender == ERC721(nftAddress).ownerOf(tokenId),
+            "caller is not the owner of the tokenId"
         );
         _;
     }
@@ -158,7 +188,10 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
                 //for loop
                 uint256 tokenId = ERC721(stream.erc721Address)
                     .tokenOfOwnerByIndex(who, j);
-                uint256 singgleBalance = getSingleNFTBalance(streamId, tokenId);
+                uint256 singgleBalance = availableBalanceForTokenId(
+                    streamId,
+                    tokenId
+                );
                 totalBalance += singgleBalance;
             }
         }
@@ -167,7 +200,7 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
         return 0;
     }
 
-    function getSingleNFTBalance(uint256 streamId, uint256 tokenId)
+    function availableBalanceForTokenId(uint256 streamId, uint256 tokenId)
         public
         view
         streamExists(streamId)
@@ -177,6 +210,7 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
         BalanceOfLocalVars memory vars;
 
         uint256 delta = deltaOf(streamId);
+        // console.log("Vesing1 Log => delta: ", delta);
         uint256 totalBalance;
         (vars.mathErr, totalBalance) = mulUInt(delta, stream.ratePerSecond);
 
@@ -190,6 +224,22 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
             investorWithdrawalAmount[streamId][tokenId]
         );
         return availableBalance;
+    }
+
+    function remainingBalanceByTokenId(uint256 streamId, uint256 tokenId)
+        public
+        view
+        returns (uint256)
+    {
+        VestingTypes.VestingStream memory stream = streams[streamId];
+        uint256 steramDuration = stream.stopTime - stream.startTime;
+
+        uint256 totalBalance = steramDuration.mul(stream.ratePerSecond);
+        uint256 tokenidBalance = totalBalance.sub(
+            investorWithdrawalAmount[streamId][tokenId]
+        );
+
+        return tokenidBalance;
     }
 
     function balanceOfSender(uint256 streamId)
@@ -396,9 +446,12 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
                 i
             );
             uint256 withdrawAmountPerNFT;
-            withdrawAmountPerNFT = getSingleNFTBalance(streamId, tokenId);
+            withdrawAmountPerNFT = availableBalanceForTokenId(
+                streamId,
+                tokenId
+            );
             investorWithdrawalAmount[streamId][tokenId] += withdrawAmountPerNFT;
-          
+
             realAvailableBalance += withdrawAmountPerNFT;
         }
         require(realAvailableBalance == balance, "Withdraw ERROR");
@@ -418,11 +471,84 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
                 msg.sender,
                 vaultRemainingBalance
             );
+            emit WithdrawFromStream(
+                streamId,
+                msg.sender,
+                vaultRemainingBalance
+            );
         } else {
             IERC20(stream.tokenAddress).safeTransfer(msg.sender, balance);
+            emit WithdrawFromStream(streamId, msg.sender, balance);
         }
 
-        emit WithdrawFromStream(streamId, msg.sender);
+        return true;
+    }
+
+    /**
+     * @notice Withdraws from the contract to the recipient's account.
+     * @dev Throws if the id does not point to a valid stream.
+     *  Throws if the caller is not the sender or the recipient of the stream.
+     *  Throws if the amount exceeds the available balance.
+     *  Throws if there is a token transfer failure.
+     * @param streamId The id of the stream to withdraw tokens from.
+     */
+    function withdrawFromStreamByTokenId(uint256 streamId, uint256 tokenId)
+        external
+        nonReentrant
+        streamExists(streamId)
+        onlyNFTOwner(streamId, tokenId)
+        returns (bool)
+    {
+        VestingTypes.VestingStream memory stream = streams[streamId];
+
+        require(
+            block.timestamp < stream.stopTime,
+            "Withdraw Error: streaming is ends"
+        );
+
+        uint256 balance = availableBalanceForTokenId(streamId, tokenId);
+        require(balance > 0, "withdrawable balance is zero");
+
+        MathError mathErr;
+
+        (mathErr, streams[streamId].remainingBalance) = subUInt(
+            stream.remainingBalance,
+            balance
+        );
+
+        investorWithdrawalAmount[streamId][tokenId] += balance;
+        /**
+         * `subUInt` can only return MathError.INTEGER_UNDERFLOW but we know that `remainingBalance` is at least
+         * as big as `amount`.
+         */
+        assert(mathErr == MathError.NO_ERROR);
+
+        // if (streams[streamId].remainingBalance == 0) delete streams[streamId];
+
+        uint256 vaultRemainingBalance = IERC20(stream.tokenAddress).balanceOf(
+            address(this)
+        );
+        if (balance > vaultRemainingBalance) {
+            IERC20(stream.tokenAddress).safeTransfer(
+                msg.sender,
+                vaultRemainingBalance
+            );
+            emit WithdrawFromStreamByTokenId(
+                streamId,
+                msg.sender,
+                tokenId,
+                vaultRemainingBalance
+            );
+        } else {
+            IERC20(stream.tokenAddress).safeTransfer(msg.sender, balance);
+            emit WithdrawFromStreamByTokenId(
+                streamId,
+                msg.sender,
+                tokenId,
+                balance
+            );
+        }
+
         return true;
     }
 

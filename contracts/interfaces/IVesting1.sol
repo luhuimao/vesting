@@ -23,8 +23,18 @@ interface IVesting1 {
      */
     event WithdrawFromStream(
         uint256 indexed streamId,
-        address indexed recipient
-        // uint256 amount
+        address indexed recipient,
+        uint256 amount
+    );
+
+    /**
+     * @notice Emits when the recipient of a stream withdraws a portion or all their pro rata share of the stream.
+     */
+    event WithdrawFromStreamByTokenId(
+        uint256 indexed streamId,
+        address indexed recipient,
+        uint256 indexed tokenId,
+        uint256 amount
     );
 
     /**

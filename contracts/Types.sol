@@ -1,5 +1,6 @@
 // pragma solidity =0.5.17;
 pragma solidity ^0.8.0;
+import "./openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * @title Sablier Types
@@ -22,6 +23,9 @@ library Types {
 }
 
 library VestingTypes {
+    using EnumerableSet for EnumerableSet.UintSet;
+    using EnumerableSet for EnumerableSet.AddressSet;
+
     struct VestingStream {
         uint256 deposit;
         uint256 ratePerSecond;
@@ -34,6 +38,7 @@ library VestingTypes {
         address erc721Address;
         uint256 nftTotalSupply;
     }
+
     struct NFTShares {
         uint256 tokenid;
         uint256 share;

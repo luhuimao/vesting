@@ -46,4 +46,8 @@ interface IVesting2 {
         );
 
     function withdrawFromStream2(uint256 stream2Id) external returns (bool);
+
+    function withdrawFromStream2ByTokenId(uint256 stream2Id, uint256 tokenId)
+        external
+        returns (bool);
 }

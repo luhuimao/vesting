@@ -45,6 +45,18 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
         );
         _;
     }
+
+    /**
+     * @dev Throws if the caller is not the owner of the spacified tokenId of the stream2.
+     */
+    modifier onlyNFTOwner(uint256 stream2Id, uint256 tokenId) {
+        address nftAddress = stream2s[stream2Id].erc721Address;
+        require(
+            msg.sender == ERC721(nftAddress).ownerOf(tokenId),
+            "caller is not the owner of the tokenId"
+        );
+        _;
+    }
     /*
      * @dev Throws if the provided id does not point to a valid stream2.
      */
@@ -155,7 +167,7 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
                 uint256 tokenId = ERC721(stream2.erc721Address)
                     .tokenOfOwnerByIndex(who, j);
 
-                uint256 balance = balanceForTokenId(stream2Id, tokenId);
+                uint256 balance = availableBalanceForTokenId(stream2Id, tokenId);
                 totalBalance += balance;
             }
             return totalBalance;
@@ -163,20 +175,46 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
         return 0;
     }
 
-    function balanceForTokenId(uint256 stream2Id, uint256 tokenId)
-        internal
+    /*
+     * @notice Returns the available funds for the given stream2 id and tokenId.
+     * @dev Throws if the id does not point to a valid stream2.
+     * @param stream2Id The id of the stream for which to query the balance.
+     * @param tokenId The tokenId for which to query the balance.
+     * @return The available funds allocated to `tokenId` owner as uint256.
+     */
+    function availableBalanceForTokenId(uint256 stream2Id, uint256 tokenId)
+        public
         view
+        stream2Exists(stream2Id)
         returns (uint256)
     {
         VestingTypes.VestingStream2 storage stream2 = stream2s[stream2Id];
         uint256 delta = deltaOf2(stream2Id);
-        // console.log("CONTRACT LOG => delta: ", delta);
         uint256 totalBalance = delta.mul(stream2.ratePerSecond);
+        uint256 share = stream2.nftShares[tokenId];
+
+        uint256 tokenidBalance = totalBalance
+            .mul(share)
+            .div(stream2.totalShares)
+            .sub(stream2.claimedAmount[tokenId]);
+        return tokenidBalance;
+    }
+
+    function remainingBalanceByTokenId(uint256 stream2Id, uint256 tokenId)
+        public
+        view
+        returns (uint256)
+    {
+        VestingTypes.VestingStream2 storage stream2 = stream2s[stream2Id];
+        uint256 steramDuration = stream2.stopTime - stream2.startTime;
+
+        uint256 totalBalance = steramDuration.mul(stream2.ratePerSecond);
         uint256 share = stream2.nftShares[tokenId];
         uint256 tokenidBalance = totalBalance
             .mul(share)
             .div(stream2.totalShares)
             .sub(stream2.claimedAmount[tokenId]);
+
         return tokenidBalance;
     }
 
@@ -219,7 +257,7 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
      * @param stopTime The unix timestamp for when the stream stops.
      * @return The uint256 id of the newly created stream.
      */
-    function createStream21(
+    function createStream2(
         uint256 deposit,
         address tokenAddress,
         uint256 startTime,
@@ -334,7 +372,7 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
         uint256 balance = balanceOf2(stream2Id, msg.sender);
 
         require(balance > 0, "withdrawable balance is zero");
-       
+
         uint256 remainingBalance = stream2.remainingBalance;
         stream2s[stream2Id].remainingBalance = remainingBalance.sub(balance);
 
@@ -344,9 +382,9 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
                 msg.sender,
                 i
             );
-            uint256 balanceOfTokenId = balanceForTokenId(stream2Id, tokenId);
+            uint256 balanceOfTokenId = availableBalanceForTokenId(stream2Id, tokenId);
             realBalance += balanceOfTokenId;
-          
+
             stream2s[stream2Id].claimedAmount[tokenId] += balanceOfTokenId;
         }
         require(realBalance == balance, "Vesting ERROR");
@@ -357,6 +395,53 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
 
         // if (stream2s[stream2Id].remainingBalance == 0)
         //     delete stream2s[stream2Id];
+
+        uint256 vaultRemainingBalance = IERC20(stream2.tokenAddress).balanceOf(
+            address(this)
+        );
+        if (balance > vaultRemainingBalance) {
+            IERC20(stream2.tokenAddress).safeTransfer(
+                msg.sender,
+                vaultRemainingBalance
+            );
+        } else {
+            IERC20(stream2.tokenAddress).safeTransfer(msg.sender, balance);
+        }
+        emit WithdrawFromStream2(stream2Id, msg.sender, balance);
+        return true;
+    }
+
+    /**
+     * @notice Withdraws from the contract to the recipient's account.
+     * @dev Throws if the id does not point to a valid stream2.
+     *  Throws if the caller is not the sender or the recipient of the stream2.
+     *  Throws if the amount exceeds the available balance.
+     *  Throws if there is a token transfer failure.
+     * @param stream2Id The id of the stream2 to withdraw tokens from.
+     */
+    function withdrawFromStream2ByTokenId(uint256 stream2Id, uint256 tokenId)
+        external
+        override
+        nonReentrant
+        stream2Exists(stream2Id)
+        onlyNFTOwner(stream2Id, tokenId)
+        returns (bool)
+    {
+        VestingTypes.VestingStream2 storage stream2 = stream2s[stream2Id];
+
+        require(
+            block.timestamp < stream2.stopTime,
+            "Withdraw Error: streaming is ends"
+        );
+
+        uint256 balance = availableBalanceForTokenId(stream2Id, tokenId);
+
+        require(balance > 0, "withdrawable balance is zero");
+
+        uint256 remainingBalance = stream2.remainingBalance;
+        stream2s[stream2Id].remainingBalance = remainingBalance.sub(balance);
+
+        stream2s[stream2Id].claimedAmount[tokenId] += balance;
 
         uint256 vaultRemainingBalance = IERC20(stream2.tokenAddress).balanceOf(
             address(this)
