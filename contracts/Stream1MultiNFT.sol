@@ -9,6 +9,7 @@ import "./Types.sol";
 import "./Library/Stream1Lib.sol";
 import "./ERC721.sol";
 import "./test/testNFT.sol";
+import "./openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "hardhat/console.sol";
 
 /**
@@ -20,6 +21,7 @@ contract Stream1MultiNFT is ReentrancyGuard, CarefulMath {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
     using Stream1Lib for Stream1Lib.VestingStream1;
+    using EnumerableSet for EnumerableSet.UintSet;
 
     /*** Storage Properties ***/
 
@@ -32,7 +34,7 @@ contract Stream1MultiNFT is ReentrancyGuard, CarefulMath {
      */
 
     mapping(uint256 => Stream1Lib.VestingStream1) private streams1;
-
+    mapping(address => EnumerableSet.UintSet) private effectedTokenIds;
     /*** Modifiers ***/
 
     /**
@@ -186,43 +188,6 @@ contract Stream1MultiNFT is ReentrancyGuard, CarefulMath {
         uint256 counter;
         uint256 i;
         uint256 j;
-    }
-
-    function test(
-        uint256 streamId,
-        address who,
-        address[] memory nftAddresses,
-        uint256[] memory tokenIds,
-        uint256[] memory tokenIdIndex
-    ) public view streamExists(streamId) returns (uint256 balance) {
-        Stream1Lib.VestingStream1 storage stream = streams1[streamId];
-        BalanceOfLocalVars memory vars;
-        require(
-            nftAddresses.length > 0 &&
-                tokenIds.length > 0 &&
-                nftAddresses.length == tokenIds.length
-        );
-        vars.recipientBalance = 0;
-        for (vars.i = 0; vars.i < nftAddresses.length; vars.i) {
-            vars.counter = 0;
-
-            for (
-                vars.j = vars.counter;
-                vars.j < tokenIdIndex[vars.i] + vars.counter;
-                vars.j++
-            ) {
-                return 1;
-                if (
-                    stream.existsNft(nftAddresses[vars.i]) &&
-                    stream.existsTokenId(
-                        nftAddresses[vars.i],
-                        tokenIds[vars.j]
-                    ) &&
-                    IERC721(nftAddresses[vars.i]).ownerOf(tokenIds[vars.j]) ==
-                    who
-                ) {}
-            }
-        }
     }
 
     /*
@@ -491,7 +456,6 @@ contract Stream1MultiNFT is ReentrancyGuard, CarefulMath {
             block.timestamp < stream.stopTime,
             "Withdraw Error: streaming is ends"
         );
-
         cvars.allAvailableBalance = 0;
         for (bvars.i = 0; bvars.i < erc721Addresses.length; bvars.i++) {
             bvars.counter = 0;
@@ -509,7 +473,10 @@ contract Stream1MultiNFT is ReentrancyGuard, CarefulMath {
                     IERC721(erc721Addresses[bvars.i]).ownerOf(
                         tokenIds[bvars.j]
                     ) ==
-                    msg.sender
+                    msg.sender &&
+                    !effectedTokenIds[erc721Addresses[bvars.i]].contains(
+                        tokenIds[bvars.j]
+                    )
                 ) {
                     // console.log(
                     //     "contract log withdrawAllFromStream => satisfied nft address: ",
@@ -517,7 +484,20 @@ contract Stream1MultiNFT is ReentrancyGuard, CarefulMath {
                     //     " satisfied tokenId: ",
                     //     tokenIds[bvars.j]
                     // );
-                    bvars.individualBalance = availableBalanceForTokenId(
+                    effectedTokenIds[erc721Addresses[bvars.i]].add(
+                        tokenIds[bvars.j]
+                    );
+                    console.log(
+                        "contract log withdrawAllFromStream => effectedTokenIds length: ",
+                        effectedTokenIds[erc721Addresses[bvars.i]].length()
+                    );
+                    // bvars.individualBalance = availableBalanceForTokenId(
+                    //     streamId,
+                    //     erc721Addresses[bvars.i],
+                    //     tokenIds[bvars.j]
+                    // );
+
+                    withdrawFromStreamByTokenId(
                         streamId,
                         erc721Addresses[bvars.i],
                         tokenIds[bvars.j]
@@ -526,10 +506,10 @@ contract Stream1MultiNFT is ReentrancyGuard, CarefulMath {
                     //     "contract log withdrawAllFromStream => individualBalance: ",
                     //     bvars.individualBalance
                     // );
-                    cvars.allAvailableBalance += bvars.individualBalance;
-                    streams1[streamId].NFTTokenIdWithdrawalAmount[
-                        erc721Addresses[bvars.i]
-                    ][tokenIds[bvars.j]] += bvars.individualBalance;
+                    // cvars.allAvailableBalance += bvars.individualBalance;
+                    // streams1[streamId].NFTTokenIdWithdrawalAmount[
+                    //     erc721Addresses[bvars.i]
+                    // ][tokenIds[bvars.j]] += bvars.individualBalance;
                     // console.log(
                     //     "contract log withdrawAllFromStream => NFTTokenIdWithdrawalAmount: ",
                     //     streams1[streamId].NFTTokenIdWithdrawalAmount[
@@ -538,45 +518,46 @@ contract Stream1MultiNFT is ReentrancyGuard, CarefulMath {
                     // );
                 }
             }
+            delete effectedTokenIds[erc721Addresses[bvars.i]];
             bvars.counter += tokenIdIndex[bvars.i];
         }
-        require(cvars.allAvailableBalance > 0, "withdrawable balance is zero");
+        // require(cvars.allAvailableBalance > 0, "withdrawable balance is zero");
 
-        require(
-            streams1[streamId].remainingBalance >= cvars.allAvailableBalance,
-            "ERROR: Withdraw Amount > Stream Remaining Balance"
-        );
+        // require(
+        //     streams1[streamId].remainingBalance >= cvars.allAvailableBalance,
+        //     "ERROR: Withdraw Amount > Stream Remaining Balance"
+        // );
 
-        streams1[streamId].remainingBalance = stream.remainingBalance.sub(
-            cvars.allAvailableBalance
-        );
+        // streams1[streamId].remainingBalance = stream.remainingBalance.sub(
+        //     cvars.allAvailableBalance
+        // );
 
         // if (streams1[streamId].remainingBalance == 0) delete streams1[streamId];
 
-        cvars.vaultRemainingBalance = IERC20(stream.tokenAddress).balanceOf(
-            address(this)
-        );
-        if (cvars.allAvailableBalance > cvars.vaultRemainingBalance) {
-            IERC20(stream.tokenAddress).safeTransfer(
-                msg.sender,
-                cvars.vaultRemainingBalance
-            );
-            emit WithdrawAllFromStream(
-                streamId,
-                msg.sender,
-                cvars.vaultRemainingBalance
-            );
-        } else {
-            IERC20(stream.tokenAddress).safeTransfer(
-                msg.sender,
-                cvars.allAvailableBalance
-            );
-            emit WithdrawAllFromStream(
-                streamId,
-                msg.sender,
-                cvars.allAvailableBalance
-            );
-        }
+        // cvars.vaultRemainingBalance = IERC20(stream.tokenAddress).balanceOf(
+        //     address(this)
+        // );
+        // if (cvars.allAvailableBalance > cvars.vaultRemainingBalance) {
+        //     IERC20(stream.tokenAddress).safeTransfer(
+        //         msg.sender,
+        //         cvars.vaultRemainingBalance
+        //     );
+        //     emit WithdrawAllFromStream(
+        //         streamId,
+        //         msg.sender,
+        //         cvars.vaultRemainingBalance
+        //     );
+        // } else {
+        //     IERC20(stream.tokenAddress).safeTransfer(
+        //         msg.sender,
+        //         cvars.allAvailableBalance
+        //     );
+        //     emit WithdrawAllFromStream(
+        //         streamId,
+        //         msg.sender,
+        //         cvars.allAvailableBalance
+        //     );
+        // }
 
         return true;
     }
@@ -594,7 +575,7 @@ contract Stream1MultiNFT is ReentrancyGuard, CarefulMath {
         address nftAddress,
         uint256 tokenId
     )
-        external
+        public
         nonReentrant
         streamExists(streamId)
         onlyNFTOwner(nftAddress, tokenId)

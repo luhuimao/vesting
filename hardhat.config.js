@@ -26,6 +26,9 @@ module.exports = {
     rinkeby: {
       allowUnlimitedContractSize: true,
       url: 'https://rinkeby.infura.io/v3/04dd3493f83c48de9735b4b29f108b84'
+    },
+    xDaiTestNet: {
+      url: 'https://xdai.poanetwork.dev/'
     }
   },
   paths: {

@@ -119,7 +119,7 @@ let main = async () => {
     const startTime = blocktimestamp + 1000;
     const stopTime = startTime + 2000;
 
-    let tmpr = await instanceVesting2.createStream21(
+    let tmpr = await instanceVesting2.createStream2(
         2000,
         instanceERC20PresetFixedSupply.address,
         startTime,
