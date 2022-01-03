@@ -1,96 +1,108 @@
 // pragma solidity =0.5.17;
 pragma solidity ^0.8.0;
 import "../openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "../openzeppelin/contracts/utils/math/SafeMath.sol";
+import "hardhat/console.sol";
 
 library Stream1LibV2 {
     using EnumerableSet for EnumerableSet.UintSet;
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
+    using SafeMath for uint256;
 
     struct VestingStream1 {
         uint256 deposit;
-        uint256 ratePerSecond;
         uint256 remainingBalance;
         uint256 startTime;
         uint256 stopTime;
         address sender;
         address tokenAddress;
+        address erc721Address;
         bool isEntity;
-        // uint256 nftTotalSupply;
-        EnumerableSet.Bytes32Set nftNameSet;
-        EnumerableSet.AddressSet nftAddresses;
-
-        mapping(bytes32 => mapping(uint256 => uint256)) perNFTSharesByName; //nftName=>nftTotalSupply=>Share
-        mapping(address => mapping(uint256 => uint256)) perNFTShares; //erc721Address=>nftTotalSupply=>Share
-        // mapping(address => EnumerableSet.UintSet) nftTokenIds;
-        mapping(address => mapping(uint256 => uint256)) NFTTokenIdWithdrawalAmount;
+        EnumerableSet.UintSet tokenIds;
+        mapping(uint256 => uint256) tokenIdShare; // tokenId => shares
+        mapping(uint256 => uint256) tokenIdRatePerSec; // tokenId=>ratePerSecond
+        mapping(uint256 => uint256) NFTTokenIdWithdrawalAmount; // tokenId => withdrawal amount
     }
 
     function addStream1(
         VestingStream1 storage stream1,
-        uint256[6] memory _uintArgs,
-        address[2] memory _addressArgs, // address sender,address tokenAddress,
-        bool isEntity,
-        address[] memory erc721Addresses,
-        uint256[] memory tokenIdIndex,
-        uint256[] memory tokenIds
+        uint256[2] memory _uintArgs,
+        address[3] memory _addressArgs, // address sender,address tokenAddress, address ERC721
+        bool isEntity
     ) internal returns (bool) {
-        stream1.deposit = _uintArgs[0];
-        stream1.ratePerSecond = _uintArgs[1];
-        stream1.remainingBalance = _uintArgs[2];
-        stream1.startTime = _uintArgs[3];
-        stream1.stopTime = _uintArgs[4];
-        stream1.nftTotalSupply = _uintArgs[5];
+        stream1.deposit = 0;
+        stream1.remainingBalance = 0;
+        stream1.startTime = _uintArgs[0];
+        stream1.stopTime = _uintArgs[1];
         stream1.sender = _addressArgs[0];
         stream1.tokenAddress = _addressArgs[1];
+        stream1.erc721Address = _addressArgs[2];
         stream1.isEntity = isEntity;
 
-        uint256 nftTotalSupply = 0;
-
-        for (uint256 i = 0; i < tokenIdIndex.length; i++) {
-            for (
-                uint256 j = nftTotalSupply;
-                j < tokenIdIndex[i] + nftTotalSupply;
-                j++
-            ) {
-                stream1.nftTokenIds[erc721Addresses[i]].add(tokenIds[j]);
-                stream1.nftAddresses.add(erc721Addresses[i]);
-            }
-            nftTotalSupply += tokenIdIndex[i];
-        }
+        // for (uint256 i = 0; i < _uintArgs[6]; i++) {
+        //     stream1.tokenIds.add(i);
+        //     stream1.tokenIdShare[i] = _uintArgs[5];
+        //     stream1.tokenIdRatePerSec[i] = _uintArgs[1];
+        // }
 
         return true;
     }
 
-    function nftAddressValues(VestingStream1 storage stream1)
-        external
-        view
-        returns (address[] memory)
+    function depositToken(VestingStream1 storage stream1, uint256 depositAmount)
+        internal
+        returns (bool)
     {
-        return stream1.nftAddresses.values();
+        stream1.deposit += depositAmount;
+        stream1.remainingBalance += depositAmount;
+
+        return true;
     }
 
-    function tokenIdValues(VestingStream1 storage stream1, address nftAddress)
+    function updateStream1(
+        VestingStream1 storage stream1,
+        // uint256 additionDeposit,
+        uint256 startIndex,
+        uint256 preMintAmount,
+        uint256 tokenIdShare,
+        uint256 ratePerSecond
+    ) internal returns (bool) {
+        // require(
+        //     additionDeposit >= preMintAmount.mul(tokenIdShare),
+        //     "ERROR: Deposit Amount Insufficient"
+        // );
+        // console.log("Constract Log => startIndex: ", startIndex);
+        // console.log("Constract Log => preMintAmount: ", preMintAmount);
+
+        for (uint256 i = startIndex; i < startIndex.add(preMintAmount); i++) {
+            // console.log("Contract Log => tokenId", i);
+            require(stream1.tokenIds.add(i), "Error: Add TokenId Failed");
+            // console.log(
+            //     "Contract Log => tokenIds.length",
+            //     stream1.tokenIds.length()
+            // );
+            stream1.tokenIdShare[i] = tokenIdShare;
+            stream1.tokenIdRatePerSec[i] = ratePerSecond;
+        }
+        // stream1.deposit += additionDeposit;
+        // stream1.remainingBalance += additionDeposit;
+
+        return true;
+    }
+
+    function tokenIdValues(VestingStream1 storage stream1)
         external
         view
         returns (uint256[] memory)
     {
-        return stream1.nftTokenIds[nftAddress].values();
+        return stream1.tokenIds.values();
     }
 
-    function existsNft(VestingStream1 storage stream1, address nftAddr)
+    function existsTokenId(VestingStream1 storage stream1, uint256 tokenId)
         external
         view
         returns (bool)
     {
-        return stream1.nftAddresses.contains(nftAddr);
-    }
-
-    function existsTokenId(
-        VestingStream1 storage stream1,
-        address nftAddr,
-        uint256 tokenId
-    ) external view returns (bool) {
-        return stream1.nftTokenIds[nftAddr].contains(tokenId);
+        return stream1.tokenIds.contains(tokenId);
     }
 }
