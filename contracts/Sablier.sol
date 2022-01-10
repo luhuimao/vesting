@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 import "./openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -124,7 +125,7 @@ contract Sablier is ISablier, ReentrancyGuard, CarefulMath {
         public
         view
         streamExists(streamId)
-        returns (uint256 deltaOfHistoriesOwner)
+        returns (uint256 del)
     {
         Types.Stream memory stream = streams[streamId];
         address nftAddress = stream.erc721Address;
@@ -365,9 +366,9 @@ contract Sablier is ISablier, ReentrancyGuard, CarefulMath {
         // if who use to be owner of tokenId
         if(isHistoriesOwnerOfNFT(streamId, who)){
             // console.log("isHistoriesOwnerOfNFT");
-            uint256 deltaOfHistoriesOwner = deltaOfHistoriesOwner(streamId, who);
-            console.log("deltaOfHistoriesOwner: ", deltaOfHistoriesOwner);
-            (MathError matherr, uint256 investorBalance) = mulUInt(deltaOfHistoriesOwner, stream.ratePerSecond);
+            uint256 deltasOfHistoriesOwner = deltaOfHistoriesOwner(streamId, who);
+            console.log("deltaOfHistoriesOwner: ", deltasOfHistoriesOwner);
+            (MathError matherr, uint256 investorBalance) = mulUInt(deltasOfHistoriesOwner, stream.ratePerSecond);
             assert(vars.mathErr == MathError.NO_ERROR);
             uint256 withdrawralAmount = investorWithdrawalAmount[streamId][who];
             (matherr, investorBalance) = subUInt(investorBalance,withdrawralAmount);

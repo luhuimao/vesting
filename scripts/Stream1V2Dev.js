@@ -171,6 +171,9 @@ async function main() {
     const delta = await instanceStream1MultiNFTV2.deltaOf(100000);
     console.log("delta: ", delta.toString());
 
+    let tokenRatePerSec = await instanceStream1MultiNFTV2.getTokenRatePerSec(100000, 0);
+    console.log(`token #0 RatePerSec: ${hre.ethers.utils.formatEther(tokenRatePerSec)}`);
+
     let token0Balance = await instanceStream1MultiNFTV2.availableBalanceForTokenId(100000, 0);
     console.log(`TestNFT1 token0 available Balance: ${hre.ethers.utils.formatEther(token0Balance)}`);
 
@@ -243,7 +246,9 @@ async function main() {
     console.log(`current timestamp: ${blocktimestamp}`);
 
     console.log(`duration: ${blocktimestamp - startTime}`);
-    let tokenRatePerSec = await instanceStream1MultiNFTV2.getTokenRatePerSec(100000, 0);
+    tokenRatePerSec = await instanceStream1MultiNFTV2.getTokenRatePerSec(100000, 0);
+
+    console.log(`token #0 RatePerSec: ${hre.ethers.utils.formatEther(tokenRatePerSec)}`);
     console.log(`expected token0 withdrawable balance: ${hre.ethers.utils.formatEther(
         (hre.ethers.BigNumber.from(blocktimestamp).sub(hre.ethers.BigNumber.from(startTime)))
             .mul(hre.ethers.BigNumber.from(tokenRatePerSec))

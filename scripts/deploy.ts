@@ -6,6 +6,9 @@ import { network } from 'hardhat';
 import { TestNFT } from '../typechain/TestNFT';
 import { Vesting1 } from '../typechain/Vesting1';
 import { Vesting2 } from '../typechain/Vesting2';
+import { Stream1MultiNFTV2 } from '../typechain/Stream1MultiNFTV2';
+import { Stream1LibV2 } from '../typechain/Stream1LibV2';
+
 import { ERC20PresetFixedSupply } from '../typechain/ERC20PresetFixedSupply';
 import * as config from '../.config';
 import { Contract, ethers } from 'ethers';
@@ -72,6 +75,28 @@ let main = async () => {
         boutils.ReplaceLine('.config.ts', key + '.*' + flag, key + ' = "' + instanceVesting2.address + '"; ' + flag);
     }
 
+    /*****************************************************************************************/
+    /*******************************Deploy Stream1LibV2******************************************/
+    /*****************************************************************************************/
+    const instanceStream1LibV2 = await (await hre.ethers.getContractFactory("Stream1LibV2")).connect(owner).deploy();
+
+    //Deploy Stream1MultiNFTV2
+    const streammultiNFTV2Address = config.getStream1MultiNFTV2AddressByNetwork(network.name);
+    let instanceStream1MultiNFTV2: Stream1MultiNFTV2;
+    if (streammultiNFTV2Address) {
+        instanceStream1MultiNFTV2 = (await hre.ethers.getContractFactory('Stream1MultiNFTV2')).connect(owner).attach(vesting2Address) as Stream1MultiNFTV2;
+        console.log('reuse Stream1MultiNFTV2 address:', instanceStream1MultiNFTV2.address);
+    } else {
+        let Stream1MultiNFTV2ContractFactory = await hre.ethers.getContractFactory('Stream1MultiNFTV2');
+        instanceStream1MultiNFTV2 = (await Stream1MultiNFTV2ContractFactory.connect(owner).deploy({
+            gasLimit: await hre.ethers.provider.estimateGas(Stream1MultiNFTV2ContractFactory.getDeployTransaction()),
+        })) as Stream1MultiNFTV2;
+        console.log('new Stream1MultiNFTV2 address:', instanceStream1MultiNFTV2.address);
+
+        let flag = '\\/\\/REPLACE_FLAG';
+        let key = 'STREAM1MULTINFTV2_ADDRESS' + network.name.toUpperCase();
+        boutils.ReplaceLine('.config.ts', key + '.*' + flag, key + ' = "' + instanceStream1MultiNFTV2.address + '"; ' + flag);
+    }
 
 
     let instanceTestNFT: TestNFT;

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 import "./openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -6,7 +7,7 @@ import "./openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./shared-contracts/compound/CarefulMath.sol";
 import "./interfaces/IVesting1.sol";
 import "./Types.sol";
-import "./Library/Stream1Lib.sol";
+import "./libraries/Stream1Lib.sol";
 import "./ERC721.sol";
 import "./test/testNFT.sol";
 import "./openzeppelin/contracts/utils/structs/EnumerableSet.sol";

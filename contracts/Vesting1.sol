@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 import "./openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -178,7 +179,6 @@ contract Vesting1 is IVesting1, ReentrancyGuard, CarefulMath {
         returns (uint256 balance)
     {
         VestingTypes.VestingStream memory stream = streams[streamId];
-        BalanceOfLocalVars memory vars;
 
         uint256 totalBalance = 0;
 

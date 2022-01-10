@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // pragma solidity >=0.6.0 <=0.8.0;
 pragma solidity ^0.8.0;
 
@@ -6,7 +7,7 @@ import "./openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "./openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import "./openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
-import "./Library/EnumerableERC721TransferredHistoriesSet.sol";
+import "./libraries/EnumerableERC721TransferredHistoriesSet.sol";
 import "./openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./openzeppelin/contracts/utils/Address.sol";
 import "./openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -32,15 +33,6 @@ contract ERC721 is
     // Equals to `bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"))`
     // which can be also obtained as `IERC721Receiver(0).onERC721Received.selector`
     bytes4 private constant _ERC721_RECEIVED = 0x150b7a02;
-
-    struct transferredInfo {
-        // owned start block timestamp
-        uint256 _ownedStartTimeStamp;
-        //owned end block timestamp
-        uint256 _ownedEndTimeStamp;
-        // owner address
-        address _nftOwner;
-    }
 
     // Mapping from holder address to their (enumerable) set of owned tokens
     mapping(address => EnumerableSet.UintSet) private _holderTokens;

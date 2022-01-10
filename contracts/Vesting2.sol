@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 import "./openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -154,7 +155,7 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
         view
         override
         stream2Exists(stream2Id)
-        returns (uint256 balance)
+        returns (uint256)
     {
         VestingTypes.VestingStream2 storage stream2 = stream2s[stream2Id];
 
@@ -167,7 +168,10 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
                 uint256 tokenId = ERC721(stream2.erc721Address)
                     .tokenOfOwnerByIndex(who, j);
 
-                uint256 balance = availableBalanceForTokenId(stream2Id, tokenId);
+                uint256 balance = availableBalanceForTokenId(
+                    stream2Id,
+                    tokenId
+                );
                 totalBalance += balance;
             }
             return totalBalance;
@@ -382,7 +386,10 @@ contract Vesting2 is IVesting2, ReentrancyGuard, CarefulMath {
                 msg.sender,
                 i
             );
-            uint256 balanceOfTokenId = availableBalanceForTokenId(stream2Id, tokenId);
+            uint256 balanceOfTokenId = availableBalanceForTokenId(
+                stream2Id,
+                tokenId
+            );
             realBalance += balanceOfTokenId;
 
             stream2s[stream2Id].claimedAmount[tokenId] += balanceOfTokenId;

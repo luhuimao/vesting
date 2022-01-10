@@ -5,26 +5,26 @@ import "./openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./shared-contracts/compound/CarefulMath.sol";
-import "./interfaces/IStream1MultiNFTV2.sol";
+import "./interfaces/IVestingV3.sol";
 import "./Types.sol";
-import "./libraries/Stream1LibV2.sol";
-
+import "./libraries/StreamLibV3.sol";
+import "./libraries/TokenAllocLibV3.sol";
 import "./openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./ERC721Stream1V2.sol";
 import "hardhat/console.sol";
 
-/**
- * @title Vesting
- * @author Benjamin
- * @notice Money streaming.
- */
-contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
+contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
-    using Stream1LibV2 for Stream1LibV2.VestingStream1;
+    using StreamLibV3 for StreamLibV3.VestingV3;
+    using Allocation for uint256;
+    using Allocation for Allocation.TokenIdAllocation;
+
     using EnumerableSet for EnumerableSet.UintSet;
 
     /*** Storage Properties ***/
+
+    uint256 public lastAllocation;
 
     /**
      * @notice Counter for new stream ids.
@@ -35,15 +35,13 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
     /**
      * @notice The stream objects identifiable by their unsigned integer ids.
      */
-
-    mapping(uint256 => Stream1LibV2.VestingStream1) private streams1;
+    mapping(uint256 => StreamLibV3.VestingV3) private streams;
     mapping(uint256 => EnumerableSet.UintSet) private effectedTokenIds;
-    mapping(address => mapping(uint256 => uint256)) userAvailableBalance;
     /*** Modifiers ***/
 
     modifier onlySender(uint256 streamId) {
         require(
-            msg.sender == streams1[streamId].sender,
+            msg.sender == streams[streamId].sender,
             "caller is not the sender of the stream"
         );
         _;
@@ -64,7 +62,7 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
      * @dev Throws if the provided id does not point to a valid stream.
      */
     modifier streamExists(uint256 streamId) {
-        require(streams1[streamId].isEntity, "stream does not exist");
+        require(streams[streamId].isEntity, "stream does not exist");
         _;
     }
 
@@ -76,6 +74,17 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
     }
 
     /*** View Functions ***/
+
+    struct BalanceOfLocalVars {
+        uint256 recipientBalance;
+        uint256 withdrawalAmount;
+        uint256 senderBalance;
+        uint256 individualBalance;
+        uint256 counter;
+        uint256 i;
+        uint256 j;
+    }
+
     /*
      * @notice Returns the stream with all its properties.
      * @dev Throws if the id does not point to a valid stream.
@@ -96,21 +105,21 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
             uint256 remainingBalance
         )
     {
-        sender = streams1[streamId].sender;
-        deposit = streams1[streamId].deposit;
-        tokenAddress = streams1[streamId].tokenAddress;
-        startTime = streams1[streamId].startTime;
-        stopTime = streams1[streamId].stopTime;
-        remainingBalance = streams1[streamId].remainingBalance;
+        sender = streams[streamId].sender;
+        deposit = streams[streamId].deposit;
+        tokenAddress = streams[streamId].tokenAddress;
+        startTime = streams[streamId].startTime;
+        stopTime = streams[streamId].stopTime;
+        remainingBalance = streams[streamId].remainingBalance;
     }
 
-    function getStreamSupportedTokenIds(uint256 streamId)
+    function getAllocationInfo(uint256 streamId, uint256 startIndex)
         external
         view
         streamExists(streamId)
-        returns (uint256[] memory)
+        returns (Allocation.TokenIdAllocation memory allc)
     {
-        return streams1[streamId].tokenIdValues();
+        return streams[streamId].tokenAllocations[startIndex];
     }
 
     /*
@@ -127,84 +136,11 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
         streamExists(streamId)
         returns (uint256 delta)
     {
-        Stream1LibV2.VestingStream1 storage stream = streams1[streamId];
+        StreamLibV3.VestingV3 storage stream = streams[streamId];
         if (block.timestamp <= stream.startTime) return 0;
         if (block.timestamp < stream.stopTime)
             return block.timestamp - stream.startTime;
         return stream.stopTime - stream.startTime;
-    }
-
-    struct BalanceOfLocalVars {
-        uint256 recipientBalance;
-        uint256 withdrawalAmount;
-        uint256 senderBalance;
-        uint256 individualBalance;
-        uint256 counter;
-        uint256 i;
-        uint256 j;
-    }
-
-    /*
-     * @notice Returns the available funds for the given stream id and address.
-     * @dev Throws if the id does not point to a valid stream.
-     * @param streamId The id of the stream for which to query the balance.
-     * @param who The address for which to query the balance.
-     * @return The total funds allocated to `who` as uint256.
-     */
-    function availableBalanceForAllNft(
-        uint256 streamId,
-        address who,
-        uint256[] calldata tokenIds
-    ) external override streamExists(streamId) returns (uint256 balance) {
-        Stream1LibV2.VestingStream1 storage stream = streams1[streamId];
-        BalanceOfLocalVars memory vars;
-        if (tokenIds.length <= 0) {
-            return 0;
-        }
-        // uint256[] memory _dededuplicateTokenIds = tokenIdsDeduplicate(tokenIds);
-        vars.recipientBalance = 0;
-        for (vars.j = 0; vars.j < tokenIds.length; vars.j++) {
-            if (
-                stream.existsTokenId(tokenIds[vars.j]) &&
-                IERC721(stream.erc721Address).ownerOf(tokenIds[vars.j]) ==
-                who &&
-                !effectedTokenIds[block.timestamp].contains(tokenIds[vars.j])
-            ) {
-                // console.log("Contract Log => who: ", who);
-                // console.log(
-                //     "Contract Log => valid tokenId: ",
-                //     tokenIds[vars.j]
-                // );
-                effectedTokenIds[block.timestamp].add(tokenIds[vars.j]);
-                vars.individualBalance = availableBalanceForTokenId(
-                    streamId,
-                    tokenIds[vars.j]
-                );
-
-                vars.recipientBalance += vars.individualBalance;
-            }
-        }
-        delete effectedTokenIds[block.timestamp];
-        // console.log(
-        //     "Constract Log => vars.recipientBalance: ",
-        //     vars.recipientBalance
-        // );
-        userAvailableBalance[who][streamId] = vars.recipientBalance;
-        // console.log(
-        //     "Contract Log: ",
-        //     who,
-        //     " available balance: ",
-        //     userAvailableBalance[who][streamId]
-        // );
-        return vars.recipientBalance;
-    }
-
-    function getUserAllAvailableBalance(uint256 streamId, address who)
-        external
-        view
-        returns (uint256)
-    {
-        return userAvailableBalance[who][streamId];
     }
 
     function availableBalanceForTokenId(uint256 streamId, uint256 tokenId)
@@ -213,10 +149,10 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
         streamExists(streamId)
         returns (uint256 balance)
     {
-        Stream1LibV2.VestingStream1 storage stream = streams1[streamId];
+        StreamLibV3.VestingV3 storage stream = streams[streamId];
         BalanceOfLocalVars memory vars;
-
-        if (!stream.existsTokenId(tokenId)) {
+        uint256 index = tokenId.getAlloctionStart();
+        if (!stream.tokenAllocations[index].checkTokenId(tokenId)) {
             return 0;
         }
         // console.log(
@@ -234,7 +170,9 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
         //     "Constract Log => tokenIdRatePerSec: ",
         //     stream.tokenIdRatePerSec[tokenId]
         // );
-        uint256 totalBalance = delta.mul(stream.tokenIdRatePerSec[tokenId]);
+        uint256 totalBalance = delta.mul(
+            stream.tokenAllocations[index].getTokenRate(tokenId)
+        );
         // console.log(
         //     "contract log  availableBalanceForTokenId => totalBalance: ",
         //     totalBalance
@@ -256,52 +194,6 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
         // );
 
         return vars.recipientBalance;
-    }
-
-    function remainingBalanceByTokenId(uint256 streamId, uint256 tokenId)
-        public
-        view
-        streamExists(streamId)
-        returns (uint256)
-    {
-        Stream1LibV2.VestingStream1 storage stream = streams1[streamId];
-
-        if (!stream.existsTokenId(tokenId)) {
-            return 0;
-        }
-        uint256 streamDuration = stream.stopTime.sub(stream.startTime);
-        // console.log(
-        //     "Contract Log => stream.tokenIdRatePerSec[tokenId] ",
-        //     stream.tokenIdRatePerSec[tokenId]
-        // );
-        uint256 totalBalance = streamDuration.mul(
-            stream.tokenIdRatePerSec[tokenId]
-        );
-        // console.log("Contract Log => totalBalance ", totalBalance);
-
-        uint256 tokenidBalance = totalBalance.sub(
-            stream.NFTTokenIdWithdrawalAmount[tokenId]
-        );
-        // console.log("Contract Log => tokenidBalance ", tokenidBalance);
-
-        return tokenidBalance;
-    }
-
-    function balanceOfSender(uint256 streamId)
-        public
-        view
-        streamExists(streamId)
-        returns (uint256 balance)
-    {
-        return streams1[streamId].remainingBalance;
-    }
-
-    function getTokenRatePerSec(uint256 streamId, uint256 tokenId)
-        external
-        view
-        returns (uint256)
-    {
-        return streams1[streamId].tokenIdRatePerSec[tokenId];
     }
 
     /*** Public Effects & Interactions Functions ***/
@@ -338,13 +230,13 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
      * @param stopTime The unix timestamp for when the stream stops.
      * @return The uint256 id of the newly created stream.
      */
-    function createMultiNFTStream(
+    function createStream(
         uint256[3] calldata _uintArgs, //_uintArgs[0] deposit, _uintArgs[1] startTime, _uintArgs[2] stopTime
         address tokenAddress,
-        uint256[] calldata _uint256ArgsNFTSupply,
+        uint256[] calldata _uint256ArgsAllocateAmount,
         uint256[] calldata _uint256ArgsNFTShares
-    ) external override returns (uint256) {
-        CreateStreamLocalVars memory cvars;
+    ) external returns (uint256) {
+        // CreateStreamLocalVars memory cvars;
         require(
             _uintArgs[1] >= block.timestamp,
             "start time before block.timestamp"
@@ -355,8 +247,6 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
         uint256 streamId = nextStreamId;
 
         uint256[2] memory uintValues = [
-            // _uintArgs[0], //deposit
-            // _uintArgs[0], //remainingBalance
             _uintArgs[1], //startTime
             _uintArgs[2] //stopTime
         ];
@@ -368,172 +258,97 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
         ];
 
         /* Create and store the stream object. */
-        streams1[streamId].addStream1(uintValues, addressValues, true);
-        cvars.duration = _uintArgs[2].sub(_uintArgs[1]);
+        streams[streamId].addStream1(uintValues, addressValues, true);
 
         if (
-            _uint256ArgsNFTSupply.length > 0 || _uint256ArgsNFTShares.length > 0
+            _uint256ArgsAllocateAmount.length > 0 ||
+            _uint256ArgsNFTShares.length > 0
         ) {
-            require(
-                _uint256ArgsNFTSupply.length == _uint256ArgsNFTShares.length,
-                "ERROR: Mint NFT Amount Not Matach NFT Shares"
+            updasteStream(
+                _uintArgs,
+                tokenAddress,
+                streamId,
+                _uint256ArgsAllocateAmount,
+                _uint256ArgsNFTShares
             );
-            for (
-                cvars.i = 0;
-                cvars.i < _uint256ArgsNFTSupply.length;
-                cvars.i++
-            ) {
-                cvars.streamAmount += _uint256ArgsNFTSupply[cvars.i].mul(
-                    _uint256ArgsNFTShares[cvars.i]
-                );
-                cvars.nftTotalSupply += _uint256ArgsNFTSupply[cvars.i];
-
-                /* Without this, the rate per second would be zero. */
-                require(
-                    _uint256ArgsNFTShares[cvars.i] >= cvars.duration,
-                    "nft share smaller than time delta"
-                );
-
-                cvars.ratePerSecond = _uint256ArgsNFTShares[cvars.i].div(
-                    cvars.duration
-                );
-
-                streams1[streamId].updateStream1(
-                    ERC721Stream1V2(erc721Address).totalSupply(),
-                    _uint256ArgsNFTSupply[cvars.i],
-                    _uint256ArgsNFTShares[cvars.i],
-                    cvars.ratePerSecond
-                );
-
-                //mint ERC721 to sender
-                ERC721Stream1V2(erc721Address).mint(
-                    _uint256ArgsNFTSupply[cvars.i],
-                    msg.sender
-                );
-            }
-
-            require(
-                _uintArgs[0] >= cvars.streamAmount,
-                "ERROR: Deposit Amount Insufficient"
-            );
-
-            // console.log("Contract Log =>  vars.duration ", vars.duration);
-
-            // cvars.totalDuration = cvars.duration.mul(
-            //     _uint256ArgsNFTSupply[cvars.i]
-            // );
-            // console.log("Contract Log =>  vars.totalDuration ", vars.totalDuration);
-
-            // console.log("Contract Log =>  vars.ratePerSecond ", vars.ratePerSecond);
-
-            IERC20(tokenAddress).safeTransferFrom(
-                msg.sender,
-                address(this),
-                _uintArgs[0] // deposit
-            );
-
-            streams1[streamId].depositToken(_uintArgs[0]);
         }
 
         /* Increment the next stream id. */
         nextStreamId = nextStreamId.add(uint256(1));
 
-        emit CreateStream(
-            streamId,
-            msg.sender
-            // _uintArgs[0], // deposit,
-            // tokenAddress,
-            // _uintArgs[1], // startTime,
-            // _uintArgs[2], // stopTime,
-            // erc721Address
-        );
+        emit CreateStream(streamId, msg.sender);
         return streamId;
     }
 
-    // function updateStream(
-    //     uint256 streamId,
-    //     uint256 depositAmount,
-    //     uint256[] calldata _uint256ArgsNFTSupply,
-    //     uint256[] calldata _uint256ArgsNFTShares
-    // ) external override nonReentrant streamExists(streamId) returns (bool) {
-    //     Stream1LibV2.VestingStream1 storage stream = streams1[streamId];
-    //     CreateStreamLocalVars memory vars;
+    function updasteStream(
+        uint256[3] calldata _uintArgs,
+        address tokenAddress,
+        uint256 streamId,
+        uint256[] calldata _uint256ArgsAllocateAmount,
+        uint256[] calldata _uint256ArgsNFTShares
+    ) internal {
+        require(
+            _uint256ArgsAllocateAmount.length == _uint256ArgsNFTShares.length,
+            "ERROR: Mint NFT Amount Not Matach NFT Shares"
+        );
+        CreateStreamLocalVars memory cvars;
+        cvars.duration = _uintArgs[2].sub(_uintArgs[1]);
 
-    //     require(
-    //         block.timestamp < stream.startTime,
-    //         "Error: streaming is started"
-    //     );
+        for (
+            cvars.i = 0;
+            cvars.i < _uint256ArgsAllocateAmount.length;
+            cvars.i++
+        ) {
+            cvars.streamAmount += _uint256ArgsAllocateAmount[cvars.i].mul(
+                _uint256ArgsNFTShares[cvars.i]
+            );
 
-    //     if (
-    //         _uint256ArgsNFTSupply.length > 0 &&
-    //         _uint256ArgsNFTShares.length == _uint256ArgsNFTSupply.length
-    //     ) {
-    //         vars.duration = stream.stopTime.sub(stream.startTime);
+            /* Without this, the rate per second would be zero. */
+            require(
+                _uint256ArgsNFTShares[cvars.i] >= cvars.duration,
+                "nft share smaller than time delta"
+            );
 
-    //         for (vars.i = 0; vars.i < _uint256ArgsNFTSupply.length; vars.i++) {
-    //             vars.nftTotalSupply += _uint256ArgsNFTSupply[vars.i];
+            cvars.ratePerSecond = _uint256ArgsNFTShares[cvars.i].div(
+                cvars.duration
+            );
 
-    //             vars.ratePerSecond = _uint256ArgsNFTShares[vars.i].div(
-    //                 vars.duration
-    //             );
+            streams[streamId].updateStream(
+                lastAllocation,
+                _uint256ArgsAllocateAmount[cvars.i],
+                _uint256ArgsNFTShares[cvars.i],
+                cvars.ratePerSecond
+            );
+            lastAllocation += Allocation.getMaxAllocationSize();
+        }
 
-    //             vars.streamAmount += _uint256ArgsNFTShares[vars.i].mul(
-    //                 _uint256ArgsNFTSupply[vars.i]
-    //             );
+        require(
+            _uintArgs[0] >= cvars.streamAmount,
+            "ERROR: Deposit Amount Insufficient"
+        );
 
-    //             streams1[streamId].updateStream1(
-    //                 ERC721Stream1V2(erc721Address).totalSupply(),
-    //                 _uint256ArgsNFTSupply[vars.i],
-    //                 _uint256ArgsNFTShares[vars.i],
-    //                 vars.ratePerSecond
-    //             );
-    //         }
+        // console.log("Contract Log =>  vars.duration ", vars.duration);
 
-    //         require(
-    //             depositAmount >= vars.streamAmount,
-    //             "Error: Deposit Amount Not Enough"
-    //         );
+        // console.log("Contract Log =>  vars.totalDuration ", vars.totalDuration);
 
-    //         IERC20(stream.tokenAddress).safeTransferFrom(
-    //             msg.sender,
-    //             address(this),
-    //             depositAmount
-    //         );
-    //         // }
+        // console.log("Contract Log =>  vars.ratePerSecond ", vars.ratePerSecond);
 
-    //         //mint ERC721 to sender
-    //         ERC721Stream1V2(erc721Address).mint(
-    //             vars.nftTotalSupply,
-    //             msg.sender
-    //         );
+        IERC20(tokenAddress).safeTransferFrom(
+            msg.sender,
+            address(this),
+            _uintArgs[0] // deposit
+        );
 
-    //         streams1[streamId].deposit += depositAmount;
-    //         streams1[streamId].remainingBalance += depositAmount;
+        streams[streamId].depositToken(_uintArgs[0]);
+    }
 
-    //         // emit UpdateStream(streamId,  vars.nftTotalSupply, tokenShare);
-
-    //         return true;
-    //     }
-    //     return false;
-    // }
-
-    // function depositToken(uint256 streamId, uint256 depositAmount)
-    //     external
-    //     nonReentrant
-    //     streamExists(streamId)
-    //     returns (bool)
-    // {
-    //     require(depositAmount > 0, "Error: depositAmount <= 0");
-
-    //     IERC20(streams1[streamId].tokenAddress).safeTransferFrom(
-    //         msg.sender,
-    //         address(this),
-    //         depositAmount
-    //     );
-
-    //     streams1[streamId].depositToken(depositAmount);
-    //     return true;
-    // }
+    function revokeStream(uint256 streamId, uint256 startIndex)
+        external
+        returns (bool)
+    {
+        streams[streamId].tokenAllocations[startIndex].revokeAllocation();
+        return true;
+    }
 
     /*
      * @notice Withdraws from the contract to the recipient's account.
@@ -547,7 +362,7 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
         uint256 streamId,
         uint256[] calldata tokenIds
     ) external override nonReentrant streamExists(streamId) returns (bool) {
-        Stream1LibV2.VestingStream1 storage stream = streams1[streamId];
+        StreamLibV3.VestingV3 storage stream = streams[streamId];
         CreateStreamLocalVars memory cvars;
         BalanceOfLocalVars memory bvars;
 
@@ -563,7 +378,9 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
             bvars.counter = 0;
 
             if (
-                stream.existsTokenId(tokenIds[bvars.i]) &&
+                stream
+                    .tokenAllocations[tokenIds[bvars.i].getAlloctionStart()]
+                    .checkTokenId(tokenIds[bvars.i]) &&
                 IERC721(stream.erc721Address).ownerOf(tokenIds[bvars.i]) ==
                 msg.sender &&
                 !effectedTokenIds[block.timestamp].contains(tokenIds[bvars.i])
@@ -589,7 +406,7 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
                 //     bvars.individualBalance
                 // );
                 cvars.allAvailableBalance += bvars.individualBalance;
-                streams1[streamId].NFTTokenIdWithdrawalAmount[
+                streams[streamId].NFTTokenIdWithdrawalAmount[
                     tokenIds[bvars.i]
                 ] += bvars.individualBalance;
                 // console.log(
@@ -606,11 +423,11 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
         require(cvars.allAvailableBalance > 0, "withdrawable balance is zero");
 
         require(
-            streams1[streamId].remainingBalance >= cvars.allAvailableBalance,
+            streams[streamId].remainingBalance >= cvars.allAvailableBalance,
             "ERROR: Withdraw Amount > Stream Remaining Balance"
         );
 
-        streams1[streamId].remainingBalance = stream.remainingBalance.sub(
+        streams[streamId].remainingBalance = stream.remainingBalance.sub(
             cvars.allAvailableBalance
         );
 
@@ -658,7 +475,7 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
         onlyNFTOwner(tokenId)
         returns (bool)
     {
-        Stream1LibV2.VestingStream1 storage stream = streams1[streamId];
+        StreamLibV3.VestingV3 storage stream = streams[streamId];
         BalanceOfLocalVars memory vars;
         require(
             block.timestamp < stream.stopTime,
@@ -674,10 +491,10 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
         require(vars.individualBalance > 0, "withdrawable balance is zero");
 
         require(
-            streams1[streamId].remainingBalance >= vars.individualBalance,
+            streams[streamId].remainingBalance >= vars.individualBalance,
             "ERROR: Withdraw Amount > Stream Remaining Balance"
         );
-        streams1[streamId].remainingBalance = stream.remainingBalance.sub(
+        streams[streamId].remainingBalance = stream.remainingBalance.sub(
             vars.individualBalance
         );
 
@@ -688,7 +505,7 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
         );
 
         if (vars.individualBalance > vaultRemainingBalance) {
-            streams1[streamId].NFTTokenIdWithdrawalAmount[
+            streams[streamId].NFTTokenIdWithdrawalAmount[
                     tokenId
                 ] += vaultRemainingBalance;
 
@@ -703,7 +520,7 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
                 vaultRemainingBalance
             );
         } else {
-            streams1[streamId].NFTTokenIdWithdrawalAmount[tokenId] += vars
+            streams[streamId].NFTTokenIdWithdrawalAmount[tokenId] += vars
                 .individualBalance;
 
             IERC20(stream.tokenAddress).safeTransfer(
@@ -724,51 +541,44 @@ contract Stream1MultiNFTV2 is IStream1MultiNFTV2, ReentrancyGuard, CarefulMath {
 
     function senderWithdrawFromStream(uint256 streamId)
         external
+        override
         nonReentrant
         streamExists(streamId)
         onlySender(streamId)
         returns (bool)
     {
-        Stream1LibV2.VestingStream1 storage stream = streams1[streamId];
+        StreamLibV3.VestingV3 storage stream = streams[streamId];
         require(msg.sender == stream.sender, "Vesting: Permission Deny");
         require(
             block.timestamp >= stream.stopTime,
             "Sender withdraw Error: block timestamp < stoptime"
         );
-        uint256 balance = balanceOfSender(streamId);
-        require(balance > 0, "Sender Withdrawable Balance Is Zero");
-
-        MathError mathErr;
+        // uint256 balance = balanceOfSender(streamId);
+        // require(balance > 0, "Sender Withdrawable Balance Is Zero");
 
         require(
-            streams1[streamId].remainingBalance >= balance,
+            streams[streamId].remainingBalance > 0,
             "ERROR: Withdraw Amount > Stream Remaining Balance"
         );
-
-        (mathErr, streams1[streamId].remainingBalance) = subUInt(
-            stream.remainingBalance,
-            balance
-        );
-
-        /**
-         * `subUInt` can only return MathError.INTEGER_UNDERFLOW but we know that `remainingBalance` is at least
-         * as big as `amount`.
-         */
-        assert(mathErr == MathError.NO_ERROR);
 
         // if (streams1[streamId].remainingBalance == 0) delete streams1[streamId];
 
         uint256 vaultRemainingBalance = IERC20(stream.tokenAddress).balanceOf(
             address(this)
         );
-        if (balance > vaultRemainingBalance) {
+        if (streams[streamId].remainingBalance > vaultRemainingBalance) {
             IERC20(stream.tokenAddress).safeTransfer(
                 msg.sender,
                 vaultRemainingBalance
             );
         } else {
-            IERC20(stream.tokenAddress).safeTransfer(msg.sender, balance);
+            IERC20(stream.tokenAddress).safeTransfer(
+                msg.sender,
+                streams[streamId].remainingBalance
+            );
         }
+
+        streams[streamId].remainingBalance = 0;
 
         return true;
     }

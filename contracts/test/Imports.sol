@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // pragma solidity =0.5.17;
 pragma solidity ^0.8.0;
 
@@ -19,5 +20,5 @@ import "../shared-contracts/test/NonStandardERC20.sol";
 // You know which one I went for.
 
 contract Imports {
-    constructor() public {}
+    constructor() {}
 }
