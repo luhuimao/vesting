@@ -40,6 +40,8 @@ interface IVestingV3 {
         uint256 amount
     );
 
+    event SenderWithdraw(uint256 indexed streamId, uint256 amount);
+
     // function balanceOf(uint256 stream2Id, address who)
     //     external
     //     view

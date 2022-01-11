@@ -63,14 +63,11 @@ library Allocation {
         return false;
     }
 
-    // function claimAllocation(
-    //     mapping(uint256 => TokenIdAllocation) storage allocations,
-    //     uint256 size,
-    //     uint256 share
-    // ) internal returns (uint256) {
-    //     require(
-    //         size < maxAllocationSize,
-    //         "allocation size must less than maxAllocationSize"
-    //     );
-    // }
+    function checkIfActive(TokenIdAllocation storage ta)
+        internal
+        view
+        returns (bool)
+    {
+        return ta.isActived;
+    }
 }
