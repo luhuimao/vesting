@@ -61,3 +61,7 @@ instanceStreamV3.withdrawAllFromStream(int steramId, int[] tokenIds);
 ```
 instanceStreamV3.senderWithdrawFromStream(int steramId);
 ```
+
+
+## StreamV3 deployed Address:
+Rinkeby 0x8b201D78c8C2d1b06e9144CA73baBff013AfEcE0
