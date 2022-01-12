@@ -32,7 +32,7 @@ async function main() {
     /*****************************************************************************************/
     /*******************************Deploy Libraries******************************************/
     /*****************************************************************************************/
-    const instanceAllocation = await (await hre.ethers.getContractFactory("Allocation")).connect(owner).deploy();
+    const instanceAllocation = await (await hre.ethers.getContractFactory("TokenAllocation")).connect(owner).deploy();
     console.log('new Allocation address:', instanceAllocation.address);
     const instanceStreamLibV3 = await (await hre.ethers.getContractFactory("StreamLibV3")).connect(owner).deploy();
     console.log('new StreamLibV3 address:', instanceStreamLibV3.address);
@@ -54,7 +54,7 @@ async function main() {
     const StreamV3 = await hre.ethers.getContractFactory("StreamV3", {
         libraries: {
             // StreamLibV3: instanceStreamV3.address,
-            Allocation: instanceAllocation.address
+            TokenAllocation: instanceAllocation.address
         },
     });
     instanceStreamV3 = await StreamV3.connect(owner).deploy(instanceERC721BatchMint.address);

@@ -17,8 +17,8 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
     using StreamLibV3 for StreamLibV3.VestingV3;
-    using Allocation for uint256;
-    using Allocation for Allocation.TokenIdAllocation;
+    using TokenAllocation for uint256;
+    using TokenAllocation for TokenAllocation.TokenIdAllocation;
 
     using EnumerableSet for EnumerableSet.UintSet;
 
@@ -118,7 +118,7 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         external
         view
         streamExists(streamId)
-        returns (Allocation.TokenIdAllocation memory allc)
+        returns (TokenAllocation.TokenIdAllocation memory allc)
     {
         return streams[streamId].tokenAllocations[startIndex];
     }
@@ -348,7 +348,7 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
                 _uint256ArgsNFTShares[cvars.i],
                 cvars.ratePerSecond
             );
-            lastAllocation += Allocation.getMaxAllocationSize();
+            lastAllocation += TokenAllocation.getMaxAllocationSize();
         }
 
         require(

@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 // pragma solidity =0.5.17;
 pragma solidity ^0.8.0;
-import "../openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+// import "../openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "../openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./TokenAllocLibV3.sol";
 import "hardhat/console.sol";
 
 library StreamLibV3 {
-    using EnumerableSet for EnumerableSet.UintSet;
-    using EnumerableSet for EnumerableSet.AddressSet;
-    using EnumerableSet for EnumerableSet.Bytes32Set;
+    // using EnumerableSet for EnumerableSet.UintSet;
+    // using EnumerableSet for EnumerableSet.AddressSet;
+    // using EnumerableSet for EnumerableSet.Bytes32Set;
     using SafeMath for uint256;
-    using Allocation for Allocation.TokenIdAllocation;
+    using TokenAllocation for TokenAllocation.TokenIdAllocation;
 
     struct VestingV3 {
         uint256 deposit;
@@ -22,7 +22,7 @@ library StreamLibV3 {
         address tokenAddress;
         address erc721Address;
         bool isEntity;
-        mapping(uint256 => Allocation.TokenIdAllocation) tokenAllocations;
+        mapping(uint256 => TokenAllocation.TokenIdAllocation) tokenAllocations;
         mapping(uint256 => uint256) NFTTokenIdWithdrawalAmount; // tokenId => withdrawal amount
     }
 
@@ -64,7 +64,7 @@ library StreamLibV3 {
         // console.log("Constract Log => startIndex: ", startIndex);
         // console.log("Constract Log => preMintAmount: ", preMintAmount);
 
-        stream1.tokenAllocations[startIndex] = Allocation.TokenIdAllocation({
+        stream1.tokenAllocations[startIndex] = TokenAllocation.TokenIdAllocation({
             share: tokenIdShare,
             size: preMintAmount,
             ratePerSecond: ratePerSecond,

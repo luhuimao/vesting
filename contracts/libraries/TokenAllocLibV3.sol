@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 import "../openzeppelin/contracts/utils/math/SafeMath.sol";
 import "hardhat/console.sol";
 
-library Allocation {
+library TokenAllocation {
     using SafeMath for uint256;
 
     uint256 public constant maxAllocationSize = 200;

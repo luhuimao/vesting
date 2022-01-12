@@ -14,3 +14,50 @@ node scripts/sample-script.js
 npx hardhat help
 ```
 # vesting
+
+## create a new stream
+```
+    instanceStreamV3.createStream(
+        [
+            hre.ethers.utils.parseEther("200000"),
+            startTime,
+            stopTime
+        ],
+        instanceTESTERC20.address,
+        [10, 20, 30],
+        [
+            hre.ethers.utils.parseEther("100"),
+            hre.ethers.utils.parseEther("200"),
+            hre.ethers.utils.parseEther("300")
+        ]
+    );
+
+    parameters:
+    int[3](int[0]: deposit token amount; int[1]: stream start timestamp; int[2]: stream stop timestamp),
+    stream token contract address,
+    editions array: each edition can't exceed 200,
+    token per edition array: length must equal to editions array
+    Note:
+    token deposit amount must >= sum(edition * token per edition)
+```
+## get available balance by tokenId
+```
+instanceStreamV3.availableBalanceForTokenId(int steramId, int tokenId);
+```
+    
+## get remaining balance by tokenId
+```
+instanceStreamV3.remainingBalanceByTokenId(int steramId, int tokenId);
+```
+## withdraw by tokenId
+```
+instanceStreamV3.withdrawFromStreamByTokenId(int steramId, int tokenId);
+```
+## withdraw all
+```
+instanceStreamV3.withdrawAllFromStream(int steramId, int[] tokenIds);
+```
+## sender Withdraw
+```
+instanceStreamV3.senderWithdrawFromStream(int steramId);
+```
