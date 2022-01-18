@@ -14,6 +14,23 @@ library TokenAllocation {
         uint256 size;
         uint256 ratePerSecond;
         bool isActived;
+        mapping(uint256 => bool) tokenIsRevoked;
+    }
+
+    function checkIfRevoked(TokenIdAllocation storage ta, uint256 tokenId)
+        external
+        view
+        returns (bool)
+    {
+        return ta.tokenIsRevoked[tokenId];
+    }
+
+    function revokeToken(TokenIdAllocation storage ta, uint256 tokenId)
+        internal
+        returns (bool)
+    {
+        ta.tokenIsRevoked[tokenId] = true;
+        return true;
     }
 
     function getMaxAllocationSize() public pure returns (uint256) {
@@ -56,7 +73,8 @@ library TokenAllocation {
         if (
             tokenId >= startIndex &&
             tokenId < startIndex.add(ta.size) &&
-            ta.isActived == true
+            ta.isActived == true &&
+            !ta.tokenIsRevoked[tokenId]
         ) {
             return true;
         }

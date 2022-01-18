@@ -64,12 +64,17 @@ library StreamLibV3 {
         // console.log("Constract Log => startIndex: ", startIndex);
         // console.log("Constract Log => preMintAmount: ", preMintAmount);
 
-        stream1.tokenAllocations[startIndex] = TokenAllocation.TokenIdAllocation({
-            share: tokenIdShare,
-            size: preMintAmount,
-            ratePerSecond: ratePerSecond,
-            isActived: true
-        });
+        stream1.tokenAllocations[startIndex].share = tokenIdShare;
+        stream1.tokenAllocations[startIndex].size = preMintAmount;
+        stream1.tokenAllocations[startIndex].ratePerSecond = ratePerSecond;
+        stream1.tokenAllocations[startIndex].isActived = true;
+
+        // TokenAllocation.TokenIdAllocation({
+        //     share: tokenIdShare,
+        //     size: preMintAmount,
+        //     ratePerSecond: ratePerSecond,
+        //     isActived: true
+        // });
         return true;
     }
 }

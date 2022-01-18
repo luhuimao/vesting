@@ -1,5 +1,11 @@
-require("@nomiclabs/hardhat-waffle");
-require("@typechain/hardhat");
+// import "@nomiclabs/hardhat-waffle";
+import "@typechain/hardhat";
+import '@nomiclabs/hardhat-ethers';
+import '@nomiclabs/hardhat-waffle';
+import '@nomiclabs/hardhat-etherscan';
+import 'hardhat-gas-reporter';
+import 'solidity-coverage';
+import { task } from "hardhat/config";
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -20,11 +26,11 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 module.exports = {
   networks: {
     hardhat: {
-      allowUnlimitedContractSize: true,
-      blockGasLimit: 0x1ffffffff,
+      // allowUnlimitedContractSize: true,
+      // blockGasLimit: 0x1ffffffff,
     },
     rinkeby: {
-      allowUnlimitedContractSize: true,
+      // allowUnlimitedContractSize: true,
       url: 'https://rinkeby.infura.io/v3/04dd3493f83c48de9735b4b29f108b84'
     },
     xDaiTestNet: {
@@ -58,4 +64,8 @@ module.exports = {
       }
     }
   },
+  // typechain: {
+  //   outDir: "src/types",
+  //   target: "ethers-v5",
+  // },
 };

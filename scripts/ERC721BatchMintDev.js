@@ -69,12 +69,13 @@ async function main() {
     let blocktimestamp = (await hre.ethers.provider.getBlock("latest")).timestamp;
     console.log(colors.magenta(`current timestamp: ${blocktimestamp.toString()}`));
 
-    const startTime = blocktimestamp + 2;
+    const startTime = blocktimestamp + 20;
     const stopTime = startTime + 50;
 
-    console.log("/*****************************************************************************************/");
-    console.log("/**************************************createStream***************************************/");
-    console.log("/*****************************************************************************************/");
+    /*****************************************************************************************/
+    /**************************************create Stream***************************************/
+    /*****************************************************************************************/
+    console.log("##############################create Stream#################################");
     await instanceStreamV3.createStream(
         [
             hre.ethers.utils.parseEther("200000"),
@@ -82,7 +83,11 @@ async function main() {
             stopTime
         ],
         instanceTESTERC20.address,
-        [10, 20, 30],
+        [
+            10,
+            20,
+            30
+        ],
         [
             hre.ethers.utils.parseEther("100"),
             hre.ethers.utils.parseEther("200"),
@@ -91,12 +96,6 @@ async function main() {
     );
 
 
-    /*****************************************************************************************/
-    /*****************************************revoke******************************************/
-    /*****************************************************************************************/
-    // let allocInfo = await instanceStreamV3.getAllocationInfo(100000, 0);
-    // console.log("allocation 0-199 isActived: ", allocInfo.isActived);
-    // await instanceStreamV3.revokeStream(100000, 0);
     allocInfo = await instanceStreamV3.getAllocationInfo(100000, 0);
     console.log("allocation 0-199 isActived: ", allocInfo.isActived);
     console.log("allocation share: ", hre.ethers.utils.formatEther(allocInfo.share));
@@ -106,10 +105,20 @@ async function main() {
     allocInfo = await instanceStreamV3.getAllocationInfo(100000, 200);
     console.log("allocation 200-399 isActived: ", allocInfo.isActived);
     console.log("allocation ratePerSecond: ", hre.ethers.utils.formatEther(allocInfo.ratePerSecond));
+    console.log("allocation share: ", hre.ethers.utils.formatEther(allocInfo.share));
+    console.log("allocation size: ", allocInfo.size.toString());
 
-    console.log("/*****************************************************************************************/");
-    console.log("/********************************user1 mintBatchByStreamId********************************/");
-    console.log("/*****************************************************************************************/");
+    allocInfo = await instanceStreamV3.getAllocationInfo(100000, 400);
+    console.log("allocation 400-599 isActived: ", allocInfo.isActived);
+    console.log("allocation ratePerSecond: ", hre.ethers.utils.formatEther(allocInfo.ratePerSecond));
+    console.log("allocation share: ", hre.ethers.utils.formatEther(allocInfo.share));
+    console.log("allocation size: ", allocInfo.size.toString());
+
+    /*****************************************************************************************/
+    /********************************user1 mint Batch By StreamId********************************/
+    /*****************************************************************************************/
+    console.log("##############################user1 mint Batch By StreamId#################################");
+
     await instanceERC721BatchMint.mintBatchByStreamId(instanceStreamV3.address, 100000, 0, user1.address);
 
     tokenBalance = await instanceERC721BatchMint.balanceOf(user1.address);
@@ -125,9 +134,41 @@ async function main() {
     let totalMinted = await instanceERC721BatchMint.totalSupply();
     console.log("totalMinted: ", totalMinted.toString());
 
-    console.log("/*****************************************************************************************/");
-    console.log("/********************************user2 mintBatchByStreamId********************************/");
-    console.log("/*****************************************************************************************/");
+
+    /*****************************************************************************************/
+    /********************************add New Edition********************************/
+    /*****************************************************************************************/
+    console.log("##############################add New Edition#################################");
+
+    await instanceStreamV3.addNewEdition(
+        100000,
+        hre.ethers.utils.parseEther("500000"),
+        [
+            100,
+            200
+        ],
+        [
+            hre.ethers.utils.parseEther("1000"),
+            hre.ethers.utils.parseEther("2000")
+        ]);
+
+
+    allocInfo = await instanceStreamV3.getAllocationInfo(100000, 600);
+    console.log("allocation 600-799 isActived: ", allocInfo.isActived);
+    console.log("allocation share: ", hre.ethers.utils.formatEther(allocInfo.share));
+    console.log("allocation size: ", allocInfo.size.toString());
+    console.log("allocation ratePerSecond: ", hre.ethers.utils.formatEther(allocInfo.ratePerSecond));
+
+    allocInfo = await instanceStreamV3.getAllocationInfo(100000, 800);
+    console.log("allocation 800-999 isActived: ", allocInfo.isActived);
+    console.log("allocation ratePerSecond: ", hre.ethers.utils.formatEther(allocInfo.ratePerSecond));
+    console.log("allocation share: ", hre.ethers.utils.formatEther(allocInfo.share));
+    console.log("allocation size: ", allocInfo.size.toString());
+
+    /*****************************************************************************************/
+    /********************************user2 mint Batch By StreamId********************************/
+    /*****************************************************************************************/
+    console.log("##############################user2 mint Batch By StreamId#################################");
     await instanceERC721BatchMint.mintBatchByStreamId(instanceStreamV3.address, 100000, 200, user2.address);
     tokenBalance = await instanceERC721BatchMint.balanceOf(user2.address);
     console.log("tokenBalance of user2: ", tokenBalance.toString());
@@ -138,9 +179,25 @@ async function main() {
     tokenId = await instanceERC721BatchMint.tokenOfOwnerByIndex(user2.address, 19)
     console.log("user2 tokenId of index 19: ", tokenId.toString());
 
-    console.log("/*****************************************************************************************/");
-    console.log("/*****************************************token #0 balance********************************/");
-    console.log("/*****************************************************************************************/");
+
+    /*****************************************************************************************/
+    /*****************************************revoke******************************************/
+    /*****************************************************************************************/
+    console.log("##############################revoke#################################");
+    ownerERC20Balance = await instanceTESTERC20.balanceOf(owner.address);
+    console.log(`Owner TestERC20 Balance before revoke: ${hre.ethers.utils.formatEther(ownerERC20Balance.toString())}`);
+    await instanceStreamV3.revokeStream(100000, 600);
+    ownerERC20Balance = await instanceTESTERC20.balanceOf(owner.address);
+    console.log(`Owner TestERC20 Balance after revoke: ${hre.ethers.utils.formatEther(ownerERC20Balance.toString())}`);
+    // let allocInfo = await instanceStreamV3.getAllocationInfo(100000, 0);
+    let revoked = await instanceStreamV3.checkIfRevoked(100000, 600);
+    console.log("token #600 revoked:", revoked);
+    revoked = await instanceStreamV3.checkIfRevoked(100000, 600);
+    console.log("token #699 revoked:", revoked);
+
+    /*****************************************************************************************/
+    /*****************************************token #0 balance********************************/
+    /*****************************************************************************************/
     blocktimestamp = (await hre.ethers.provider.getBlock("latest")).timestamp;
     console.log(colors.magenta(`current timestamp: ${blocktimestamp.toString()}`));
     let tokenAvailableBalance = await instanceStreamV3.availableBalanceForTokenId(100000, 0);
@@ -150,10 +207,9 @@ async function main() {
     console.log("token #0 Remaining Balance: ", hre.ethers.utils.formatEther(tokenRemainingBalance.toString()));
 
 
-    console.log("/*****************************************************************************************/");
-    console.log("/*****************************************token #200 balance********************************/");
-    console.log("/*****************************************************************************************/");
-
+    /*****************************************************************************************/
+    /*****************************************token #200 balance********************************/
+    /*****************************************************************************************/
     await instanceTESTERC20.transfer(user1.address, 1);
     await instanceTESTERC20.connect(user1).transfer(owner.address, 1);
 
@@ -163,9 +219,10 @@ async function main() {
     tokenRemainingBalance = await instanceStreamV3.remainingBalanceByTokenId(100000, 200);
     console.log("token #200 Remaining Balance: ", hre.ethers.utils.formatEther(tokenRemainingBalance.toString()));
 
-    console.log("/*****************************************************************************************/");
-    console.log("/*****************************************token withdraw**********************************/");
-    console.log("/*****************************************************************************************/");
+    /*****************************************************************************************/
+    /*****************************************token withdraw**********************************/
+    /*****************************************************************************************/
+    console.log("##############################token withdraw#################################");
     let user1ERC20Balace = await instanceTESTERC20.balanceOf(user1.address);
     console.log("user1 ERC20 Balace: ", hre.ethers.utils.formatEther(user1ERC20Balace.toString()));
     console.log(colors.green(`~~~~~~~~~~~~~~~~~~~~~~~~~~~~~user1 withdraw token #0~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`));

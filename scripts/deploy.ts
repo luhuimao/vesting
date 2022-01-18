@@ -11,18 +11,27 @@ import { ERC20PresetFixedSupply } from '../typechain/ERC20PresetFixedSupply';
 import * as config from '../.config';
 import * as boutils from './boutils';
 import { getOwnerPrivateKey } from '../.privatekey';
+import { BigNumber } from 'ethers';
+
+let owner: any;
+let instanceERC20PresetFixedSupply: ERC20PresetFixedSupply;
+let instanceTokenAllocation: TokenAllocation;
+let instanceERC721BatchMint: ERC721BatchMint;
+let instanceStreamV3: StreamV3;
+let gasprice: BigNumber;
+let blockGaslimit0: BigNumber;
+let blockGaslimit: BigNumber;
 
 let main = async () => {
     console.log('network:', network.name, (await ethers.provider.getNetwork()).chainId);
     // let user;
-    let owner = new ethers.Wallet(await getOwnerPrivateKey(network.name), ethers.provider);
     // [, user] = await ethers.getSigners();
-
+    owner = new ethers.Wallet(await getOwnerPrivateKey(network.name), ethers.provider);
     console.log('deploy account:', owner.address, ethers.utils.formatEther((await owner.getBalance()).toString()));
 
-    let gasprice = (await owner.getGasPrice()).add(1);
-    let blockGaslimit0 = (await ethers.provider.getBlock('latest')).gasLimit;
-    let blockGaslimit = blockGaslimit0.div(4);
+    gasprice = (await owner.getGasPrice()).add(1);
+    blockGaslimit0 = (await ethers.provider.getBlock('latest')).gasLimit;
+    blockGaslimit = blockGaslimit0.div(4);
     if (network.name == 'devnet') {
         gasprice = gasprice.sub(gasprice).add(1);
         blockGaslimit = blockGaslimit0;
@@ -99,7 +108,7 @@ let main = async () => {
 
     ///////////////////////////////////////Deploy TokenAllocation///////////////////////////////////////
     const TokenAllocationAddress = config.getTokenAllocLibV3AddressByNetwork(network.name);
-    let instanceTokenAllocation: TokenAllocation;
+    // let instanceTokenAllocation: TokenAllocation;
     if (TokenAllocationAddress) {
         instanceTokenAllocation = (await ethers.getContractFactory('TokenAllocation')).connect(owner).attach(TokenAllocationAddress) as TokenAllocation;
         console.log('reuse TokenAllocation address:', instanceTokenAllocation.address);
@@ -118,7 +127,7 @@ let main = async () => {
 
     ///////////////////////////////////////Deploy ERC721BatchMint///////////////////////////////////////
     const ERC721BatchMintAddress = config.getERC721BatchMintAddressByNetwork(network.name);
-    let instanceERC721BatchMint: ERC721BatchMint;
+    // let instanceERC721BatchMint: ERC721BatchMint;
     if (ERC721BatchMintAddress) {
         instanceERC721BatchMint = (await ethers.getContractFactory('ERC721BatchMint'))
             .connect(owner).attach(ERC721BatchMintAddress) as ERC721BatchMint;
@@ -137,7 +146,7 @@ let main = async () => {
 
     ///////////////////////////////////////Deploy StreamV3 ///////////////////////////////////////
     const streamV3Address = config.getStreamV3AddressByNetwork(network.name);
-    let instanceStreamV3: StreamV3;
+    // let instanceStreamV3: StreamV3;
     if (streamV3Address) {
         instanceStreamV3 = (await ethers.getContractFactory('StreamV3',
             { libraries: { TokenAllocation: instanceTokenAllocation.address } }))
@@ -177,7 +186,7 @@ let main = async () => {
     // }
 
     ///////////////////////////////////////Deploy ERC20PresetFixedSupply///////////////////////////////////////
-    let instanceERC20PresetFixedSupply: ERC20PresetFixedSupply;
+    // let instanceERC20PresetFixedSupply: ERC20PresetFixedSupply;
     const testERC20ddress = config.getTESTERC20AddressByNetwork(network.name);
     if (testERC20ddress) {
         instanceERC20PresetFixedSupply = (await ethers.getContractFactory('ERC20PresetFixedSupply')).connect(owner).attach(testERC20ddress) as ERC20PresetFixedSupply;
@@ -232,18 +241,22 @@ let main = async () => {
 
     // await boutils.Sleep(10000);
 
+    await getVestingInfo(100002);
+    await getlastAllocation();
+    await getAllocationInfo(100002, 1200);
 
-    console.log("/*****************************************************************************************/");
-    console.log("/************************************************create StreamV3*****************************/");
-    console.log("/*****************************************************************************************/");
-
-    let blocktimestamp = (await ethers.provider.getBlock("latest")).timestamp;
-    console.log(`current timestamp: ${blocktimestamp.toString()}`);
-    let startTime = blocktimestamp + 1000;
-    let stopTime = startTime + 2000;
+    await mintNFT("0xCea5E66bec5193e5eC0b049a3Fe5d7Dd896fD480");
+    /*****************************************************************************************/
+    /************************************************create StreamV3*****************************/
+    /*****************************************************************************************/
+    // await createStream();
+    // let blocktimestamp = (await ethers.provider.getBlock("latest")).timestamp;
+    // console.log(`current timestamp: ${blocktimestamp.toString()}`);
+    // let startTime = blocktimestamp + 1000;
+    // let stopTime = startTime + 2000;
 
     //unlimited Approval for ERC20 token
-    let approve_amount = '115792089237316195423570985008687907853269984665640564039457584007913129639935'; //(2^256 - 1 )
+    // let approve_amount = '115792089237316195423570985008687907853269984665640564039457584007913129639935'; //(2^256 - 1 )
     // await instanceERC20PresetFixedSupply.approve(instanceStreamV3.address, approve_amount);
 
     // let tx = await instanceStreamV3.createStream(
@@ -266,37 +279,114 @@ let main = async () => {
     // );
     // console.log(tx);
 
-    let rel = await instanceStreamV3.getStreamInfo(100000);
+    // let rel = await instanceStreamV3.getStreamInfo(100000);
+    // console.log(`sender:${rel.sender}`);
+    // console.log(`tokenAddress:${rel.tokenAddress}`);
+    // console.log(`startTime:${rel.startTime}`);
+    // console.log(`stopTime:${rel.stopTime}`);
+    // console.log(`remainingBalance:${ethers.utils.formatEther(rel.remainingBalance)}`);
+
+    ///////////////////////////////////////batch mint nft///////////////////////////////////////
+    // await instanceERC721BatchMint.mintBatchByStreamId(instanceStreamV3.address, 100000, 0, owner.address);
+
+    // let tokenBalance = await instanceERC721BatchMint.balanceOf(owner.address);
+    // console.log("owner test nft Balance: ", tokenBalance.toString());
+    // // let chainId = (await ethers.provider.getNetwork()).chainId;
+
+    // let tokenAvailableBalance = await instanceStreamV3.availableBalanceForTokenId(100000, 0);
+    // console.log("token #0 Available Balance: ", hre.ethers.utils.formatEther(tokenAvailableBalance.toString()));
+
+    // let tokenRemainingBalance = await instanceStreamV3.remainingBalanceByTokenId(100000, 0);
+    // console.log("token #0 Remaining Balance: ", hre.ethers.utils.formatEther(tokenRemainingBalance.toString()));
+
+    ///////////////////////////////////////withdraw From Stream By TokenId///////////////////////////////////////
+    // let user1ERC20Balace = await instanceERC20PresetFixedSupply.balanceOf(owner.address);
+    // console.log("owner ERC20 Balace: ", hre.ethers.utils.formatEther(user1ERC20Balace.toString()));
+    // console.log(`~~~~~~~~~~~~~~~~~~~~~~~~~~~~~user1 withdraw token #0~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`);
+    // // await instanceStreamV3.connect(owner).withdrawFromStreamByTokenId(100000, 0);
+    // user1ERC20Balace = await instanceERC20PresetFixedSupply.balanceOf(owner.address);
+    // console.log("owner ERC20 Balace: ", hre.ethers.utils.formatEther(user1ERC20Balace.toString()));
+
+    // let streamInfo = await instanceStreamV3.getStreamInfo(100000);
+    // console.log("pool remaining Balance: ", hre.ethers.utils.formatEther(streamInfo.remainingBalance.toString()));
+};
+
+
+async function createStream() {
+    let blocktimestamp = (await ethers.provider.getBlock("latest")).timestamp;
+    console.log(`current timestamp: ${blocktimestamp.toString()}`);
+    let startTime = blocktimestamp + 60 * 5;// 5 mins later streaming start.
+    let stopTime = startTime + 60 * 60 * 24 * 15;// 15 days later streaming end.
+
+    //unlimited Approval for ERC20 token
+    let approve_amount = '115792089237316195423570985008687907853269984665640564039457584007913129639935'; //(2^256 - 1 )
+    await instanceERC20PresetFixedSupply.approve(instanceStreamV3.address, approve_amount);
+
+    let tx = await instanceStreamV3.createStream(
+        [
+            ethers.utils.parseEther("200000"),
+            startTime,
+            stopTime,
+        ],
+        instanceERC20PresetFixedSupply.address,
+        [
+            100
+        ],
+        [
+            ethers.utils.parseEther("100")
+        ],
+        {
+            gasPrice: ethers.utils.parseUnits("10", "gwei"),
+            gasLimit: blockGaslimit
+        }
+    );
+
+    let rel = await instanceStreamV3.getStreamInfo(100001);
     console.log(`sender:${rel.sender}`);
     console.log(`tokenAddress:${rel.tokenAddress}`);
     console.log(`startTime:${rel.startTime}`);
     console.log(`stopTime:${rel.stopTime}`);
     console.log(`remainingBalance:${ethers.utils.formatEther(rel.remainingBalance)}`);
+}
 
-    ///////////////////////////////////////batch mint nft///////////////////////////////////////
-    // await instanceERC721BatchMint.mintBatchByStreamId(instanceStreamV3.address, 100000, 0, owner.address);
+async function getVestingInfo(streamId: number) {
+    let rel = await instanceStreamV3.getStreamInfo(streamId);
+    console.log(`sender:${rel.sender}`);
+    console.log(`tokenAddress:${rel.tokenAddress}`);
+    console.log(`startTime:${rel.startTime}`);
+    console.log(`stopTime:${rel.stopTime}`);
+    console.log(`remainingBalance:${ethers.utils.formatEther(rel.remainingBalance)}`);
+}
 
-    let tokenBalance = await instanceERC721BatchMint.balanceOf(owner.address);
-    console.log("owner test nft Balance: ", tokenBalance.toString());
-    // let chainId = (await ethers.provider.getNetwork()).chainId;
+async function getlastAllocation() {
+    const lastAllocation = await instanceStreamV3.lastAllocation();
+    console.log("lastAllocation: ", lastAllocation.toString());
+}
 
-    let tokenAvailableBalance = await instanceStreamV3.availableBalanceForTokenId(100000, 0);
-    console.log("token #0 Available Balance: ", hre.ethers.utils.formatEther(tokenAvailableBalance.toString()));
+async function getAllocationInfo(streamId: number, startIndex: number) {
+    const allcInfo = await instanceStreamV3.getAllocationInfo(100002, 1200);
+    console.log("allcInfo.share: ", hre.ethers.utils.formatEther(allcInfo.share.toString()));
+    console.log("allcInfo.size: ", allcInfo.size.toString());
+    console.log("allcInfo.ratePerSecond: ", hre.ethers.utils.formatEther(allcInfo.ratePerSecond.toString()));
+    console.log("allcInfo.isActived: ", allcInfo.isActived);
 
-    let tokenRemainingBalance = await instanceStreamV3.remainingBalanceByTokenId(100000, 0);
-    console.log("token #0 Remaining Balance: ", hre.ethers.utils.formatEther(tokenRemainingBalance.toString()));
+}
 
-    ///////////////////////////////////////withdraw From Stream By TokenId///////////////////////////////////////
-    let user1ERC20Balace = await instanceERC20PresetFixedSupply.balanceOf(owner.address);
-    console.log("owner ERC20 Balace: ", hre.ethers.utils.formatEther(user1ERC20Balace.toString()));
-    console.log(`~~~~~~~~~~~~~~~~~~~~~~~~~~~~~user1 withdraw token #0~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`);
-    // await instanceStreamV3.connect(owner).withdrawFromStreamByTokenId(100000, 0);
-    user1ERC20Balace = await instanceERC20PresetFixedSupply.balanceOf(owner.address);
-    console.log("owner ERC20 Balace: ", hre.ethers.utils.formatEther(user1ERC20Balace.toString()));
+async function mintNFT(receiver: string) {
+    /////////////////////////////////////batch mint nft///////////////////////////////////////
+    await instanceERC721BatchMint.mintBatch(1200, 10, receiver);
 
-    let streamInfo = await instanceStreamV3.getStreamInfo(100000);
-    console.log("pool remaining Balance: ", hre.ethers.utils.formatEther(streamInfo.remainingBalance.toString()));
-};
+    let tokenBalance = await instanceERC721BatchMint.balanceOf(receiver);
+    console.log("receiver test nft Balance: ", tokenBalance.toString());
+}
+
+// getVestingInfo(100001) .then(() => process.exit(0))
+// .catch((error) => {
+//     console.error(error);
+//     process.exit(1);
+// });
+
+
 
 main()
     .then(() => process.exit(0))
@@ -304,3 +394,10 @@ main()
         console.error(error);
         process.exit(1);
     });
+
+
+// mintNFT("0xCea5E66bec5193e5eC0b049a3Fe5d7Dd896fD480").then(() => process.exit(0))
+//     .catch((error) => {
+//         console.error(error);
+//         process.exit(1);
+//     });

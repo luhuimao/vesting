@@ -11,6 +11,7 @@ import "./libraries/StreamLibV3.sol";
 import "./libraries/TokenAllocLibV3.sol";
 import "./openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./ERC721Stream1V2.sol";
+import "./ERC721BatchMint.sol";
 import "hardhat/console.sol";
 
 contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
@@ -118,9 +119,19 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         external
         view
         streamExists(streamId)
-        returns (TokenAllocation.TokenIdAllocation memory allc)
+        returns (
+            uint256 share,
+            uint256 size,
+            uint256 ratePerSecond,
+            bool isActived
+        )
     {
-        return streams[streamId].tokenAllocations[startIndex];
+        share = streams[streamId].tokenAllocations[startIndex].share;
+        size = streams[streamId].tokenAllocations[startIndex].size;
+        ratePerSecond = streams[streamId]
+            .tokenAllocations[startIndex]
+            .ratePerSecond;
+        isActived = streams[streamId].tokenAllocations[startIndex].isActived;
     }
 
     /*
@@ -225,6 +236,17 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         return tokenidBalance;
     }
 
+    function checkIfRevoked(uint256 streamId, uint256 tokenId)
+        external
+        view
+        returns (bool)
+    {
+        return
+            streams[streamId]
+                .tokenAllocations[tokenId.getAlloctionStart()]
+                .checkIfRevoked(tokenId);
+    }
+
     /*** Public Effects & Interactions Functions ***/
 
     struct CreateStreamLocalVars {
@@ -309,8 +331,42 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         return streamId;
     }
 
+    function addNewEdition(
+        uint256 streamId,
+        uint256 deposit,
+        uint256[] calldata _uint256ArgsAllocateAmount,
+        uint256[] calldata _uint256ArgsNFTShares
+    ) external returns (bool) {
+        require(
+            streams[streamId].startTime > block.timestamp,
+            "Stream Has Already Started"
+        );
+        require(msg.sender == streams[streamId].sender, "only stream sender");
+
+        uint256[3] memory _uintArgs = [
+            deposit,
+            streams[streamId].startTime, //startTime
+            streams[streamId].stopTime //stopTime
+        ];
+
+        if (
+            _uint256ArgsAllocateAmount.length > 0 ||
+            _uint256ArgsNFTShares.length > 0
+        ) {
+            updasteStream(
+                _uintArgs,
+                streams[streamId].tokenAddress,
+                streamId,
+                _uint256ArgsAllocateAmount,
+                _uint256ArgsNFTShares
+            );
+        }
+
+        return true;
+    }
+
     function updasteStream(
-        uint256[3] calldata _uintArgs,
+        uint256[3] memory _uintArgs,
         address tokenAddress,
         uint256 streamId,
         uint256[] calldata _uint256ArgsAllocateAmount,
@@ -371,17 +427,48 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         streams[streamId].depositToken(_uintArgs[0]);
     }
 
+    /*
+     * @notice Creates a new stream funded by `msg.sender` and paid towards `recipient`.
+     * @dev Throws if the recipient is the zero address, the contract itself or the caller.
+     *  Throws if the caller is not stream sender.
+     * @param streamId stream ID.
+     * @param startIndex tokenID allocation index.
+     * @return revoke result.
+     */
     function revokeStream(uint256 streamId, uint256 startIndex)
         external
         returns (bool)
     {
-        require(
-            streams[streamId].startTime > block.timestamp,
-            "Stream Has Already Started"
-        );
         require(msg.sender == streams[streamId].sender, "only stream sender");
+        uint256 revokeAmount = 0;
+        for (
+            uint256 i = startIndex;
+            i <
+            startIndex.add(streams[streamId].tokenAllocations[startIndex].size);
+            i++
+        ) {
+            // token i hasn't been minted
+            if (!ERC721BatchMint(erc721Address).exists(i)) {
+                streams[streamId].tokenAllocations[startIndex].revokeToken(i); //revoke token i
+                revokeAmount += 1;
+            }
+        }
 
-        streams[streamId].tokenAllocations[startIndex].revokeAllocation();
+        require(
+            streams[streamId].remainingBalance >=
+                revokeAmount.mul(
+                    streams[streamId].tokenAllocations[startIndex].share
+                ),
+            "Revoke Error: Insufficient Balance"
+        );
+
+        IERC20(streams[streamId].tokenAddress).safeTransfer(
+            msg.sender,
+            revokeAmount.mul(
+                streams[streamId].tokenAllocations[startIndex].share
+            )
+        );
+
         return true;
     }
 
