@@ -450,16 +450,16 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         uint256 revokeAmount
     ) external returns (bool) {
         require(msg.sender == streams[streamId].sender, "only stream sender");
-        uint256 unmintedTokenAmount = ERC721BatchMint(erc721Address)
-            .unmintTokenAmount(address(this), streamId, startIndex);
-
+        // uint256 unmintedTokenAmount = ERC721BatchMint(erc721Address)
+        //     .unmintTokenAmount(address(this), streamId, startIndex);
+        uint256 revokedAmount = streams[streamId]
+            .tokenAllocations[startIndex]
+            .revokedTokenIds
+            .length();
         require(
             revokeAmount <=
                 streams[streamId].tokenAllocations[startIndex].size.sub(
-                    streams[streamId]
-                        .tokenAllocations[startIndex]
-                        .revokedTokenIds
-                        .length()
+                    revokedAmount
                 ),
             "revoke amount can't greater than unrevoked size"
         );
@@ -470,13 +470,8 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         uint256 exactRevokedAmount = 0;
 
         for (
-            uint256 i = startIndex.add(
-                streams[streamId]
-                    .tokenAllocations[startIndex]
-                    .revokedTokenIds
-                    .length()
-            );
-            i < startIndex.add(revokeAmount);
+            uint256 i = startIndex.add(revokedAmount);
+            i < startIndex.add(revokedAmount).add(revokeAmount);
             i++
         ) {
             // token i hasn't been minted && unrevoked
@@ -497,6 +492,12 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
                     streams[streamId].tokenAllocations[startIndex].share
                 ),
             "Revoke Error: Insufficient Balance"
+        );
+        streams[streamId].deposit -= exactRevokedAmount.mul(
+            streams[streamId].tokenAllocations[startIndex].share
+        );
+        streams[streamId].remainingBalance -= exactRevokedAmount.mul(
+            streams[streamId].tokenAllocations[startIndex].share
         );
 
         IERC20(streams[streamId].tokenAddress).safeTransfer(

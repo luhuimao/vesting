@@ -69,7 +69,7 @@ async function main() {
     let blocktimestamp = (await hre.ethers.provider.getBlock("latest")).timestamp;
     console.log(colors.magenta(`current timestamp: ${blocktimestamp.toString()}`));
 
-    const startTime = blocktimestamp + 30;
+    const startTime = blocktimestamp + 9;
     const stopTime = startTime + 50;
 
     /*****************************************************************************************/
@@ -190,16 +190,30 @@ async function main() {
     console.log("##############################revoke#################################");
     ownerERC20Balance = await instanceTESTERC20.balanceOf(owner.address);
     console.log(`Owner TestERC20 Balance before revoke: ${hre.ethers.utils.formatEther(ownerERC20Balance.toString())}`);
-    await instanceStreamV3.revokeStream(100000, 600, 100);
+
+    let streamInfo = await instanceStreamV3.getStreamInfo(100000);
+    console.log("pool remaining Balance before revoke: ", hre.ethers.utils.formatEther(streamInfo.remainingBalance.toString()));
+
+    await instanceStreamV3.revokeStream(100000, 600, 50);
     ownerERC20Balance = await instanceTESTERC20.balanceOf(owner.address);
     console.log(`Owner TestERC20 Balance after revoke: ${hre.ethers.utils.formatEther(ownerERC20Balance.toString())}`);
     // let allocInfo = await instanceStreamV3.getAllocationInfo(100000, 0);
+
+    streamInfo = await instanceStreamV3.getStreamInfo(100000);
+    console.log("pool remaining Balance after revoke: ", hre.ethers.utils.formatEther(streamInfo.remainingBalance.toString()));
+
     let revoked = await instanceStreamV3.checkIfRevoked(100000, 600);
     console.log("token #600 revoked:", revoked);
-    revoked = await instanceStreamV3.checkIfRevoked(100000, 600);
+    revoked = await instanceStreamV3.checkIfRevoked(100000, 699);
     console.log("token #699 revoked:", revoked);
 
-    await instanceStreamV3.revokeStream(100000, 600, 100);
+    await instanceStreamV3.revokeStream(100000, 600, 50);
+
+    streamInfo = await instanceStreamV3.getStreamInfo(100000);
+    console.log("pool remaining Balance after second revoke: ", hre.ethers.utils.formatEther(streamInfo.remainingBalance.toString()));
+
+    revoked = await instanceStreamV3.checkIfRevoked(100000, 699);
+    console.log("token #699 revoked:", revoked);
     ownerERC20Balance = await instanceTESTERC20.balanceOf(owner.address);
     console.log(`Owner TestERC20 Balance after second revoke: ${hre.ethers.utils.formatEther(ownerERC20Balance.toString())}`);
 
@@ -235,17 +249,23 @@ async function main() {
     let user1ERC20Balace = await instanceTESTERC20.balanceOf(user1.address);
     console.log("user1 ERC20 Balace: ", hre.ethers.utils.formatEther(user1ERC20Balace.toString()));
     console.log(colors.green(`~~~~~~~~~~~~~~~~~~~~~~~~~~~~~user1 withdraw token #0~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`));
+    user1ERC20Balace = await instanceTESTERC20.balanceOf(user1.address);
+    console.log("user1 ERC20 Balace before withdraw: ", hre.ethers.utils.formatEther(user1ERC20Balace.toString()));
+
     await instanceStreamV3.connect(user1).withdrawFromStreamByTokenId(100000, 0);
     user1ERC20Balace = await instanceTESTERC20.balanceOf(user1.address);
-    console.log("user1ERC20Balace: ", hre.ethers.utils.formatEther(user1ERC20Balace.toString()));
+    console.log("user1 ERC20 Balace after withdraw: ", hre.ethers.utils.formatEther(user1ERC20Balace.toString()));
 
-    let streamInfo = await instanceStreamV3.getStreamInfo(100000);
+    streamInfo = await instanceStreamV3.getStreamInfo(100000);
     console.log("pool remaining Balance: ", hre.ethers.utils.formatEther(streamInfo.remainingBalance.toString()));
 
     console.log(colors.green(`~~~~~~~~~~~~~~~~~~~~~~~~~~~~~user1 withdraw all~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`));
+    user1ERC20Balace = await instanceTESTERC20.balanceOf(user1.address);
+    console.log("user1 ERC20 Balace before withdraw: ", hre.ethers.utils.formatEther(user1ERC20Balace.toString()));
+
     await instanceStreamV3.connect(user1).withdrawAllFromStream(100000, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     user1ERC20Balace = await instanceTESTERC20.balanceOf(user1.address);
-    console.log("user1ERC20Balace: ", hre.ethers.utils.formatEther(user1ERC20Balace.toString()));
+    console.log("user1 ERC20 Balace after withdraw: ", hre.ethers.utils.formatEther(user1ERC20Balace.toString()));
 
     streamInfo = await instanceStreamV3.getStreamInfo(100000);
     console.log("pool remaining Balance: ", hre.ethers.utils.formatEther(streamInfo.remainingBalance.toString()));
@@ -253,20 +273,26 @@ async function main() {
     user2ERC20Balace = await instanceTESTERC20.balanceOf(user2.address);
     console.log("user2 ERC20Balace: ", hre.ethers.utils.formatEther(user2ERC20Balace.toString()));
     console.log(colors.green(`~~~~~~~~~~~~~~~~~~~~~~~~~~~~~user2 withdraw token #200~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`));
+    user2ERC20Balace = await instanceTESTERC20.balanceOf(user2.address);
+    console.log("user2 ERC20 Balace before withdraw: ", hre.ethers.utils.formatEther(user2ERC20Balace.toString()));
+
     await instanceStreamV3.connect(user2).withdrawFromStreamByTokenId(100000, 200);
     user2ERC20Balace = await instanceTESTERC20.balanceOf(user2.address);
-    console.log("user2 ERC20Balace: ", hre.ethers.utils.formatEther(user2ERC20Balace.toString()));
+    console.log("user2 ERC20 Balace after withdraw: ", hre.ethers.utils.formatEther(user2ERC20Balace.toString()));
 
     streamInfo = await instanceStreamV3.getStreamInfo(100000);
     console.log("pool remaining Balance: ", hre.ethers.utils.formatEther(streamInfo.remainingBalance.toString()));
 
     console.log(colors.green(`~~~~~~~~~~~~~~~~~~~~~~~~~~~~~user2 withdraw all~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`));
+    user2ERC20Balace = await instanceTESTERC20.balanceOf(user2.address);
+    console.log("user2 ERC20 Balace before withdraw: ", hre.ethers.utils.formatEther(user2ERC20Balace.toString()));
+
     await instanceStreamV3.connect(user2).withdrawAllFromStream(100000, [
         200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210,
         211, 212, 213, 214, 215, 216, 217, 218, 219, 209, 210
     ]);
     user2ERC20Balace = await instanceTESTERC20.balanceOf(user2.address);
-    console.log("user2 ERC20Balace: ", hre.ethers.utils.formatEther(user2ERC20Balace.toString()));
+    console.log("user2 ERC20 Balace after withdraw: ", hre.ethers.utils.formatEther(user2ERC20Balace.toString()));
 
     streamInfo = await instanceStreamV3.getStreamInfo(100000);
     console.log("pool remaining Balance: ", hre.ethers.utils.formatEther(streamInfo.remainingBalance.toString()));
@@ -279,7 +305,7 @@ async function main() {
     /*****************************************************************************************/
     /******************transfer token #0 from user1 to user2**********************************/
     /*****************************************************************************************/
-    console.log(colors.green(`~~~~~~~~~~~~~~~~~~~~~~~~~~~~~transfer token #0~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`));
+    console.log(colors.green(`~~~~~~~~~~~~~~~~~~~~~~~~~~~~~transfer token #0 to user2~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`));
 
     await instanceERC721BatchMint.connect(user1).transferFrom(user1.address, user2.address, 0);
 
@@ -290,7 +316,13 @@ async function main() {
     console.log("token #0 Remaining Balance: ", hre.ethers.utils.formatEther(tokenRemainingBalance.toString()));
 
     console.log(colors.green(`~~~~~~~~~~~~~~~~~~~~~~~~~~~~~user2 withdraw token #0~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`));
+    user2ERC20Balace = await instanceTESTERC20.balanceOf(user2.address);
+    console.log("user2 ERC20 Balance before withdraw: ", hre.ethers.utils.formatEther(user2ERC20Balace.toString()));
+
     await instanceStreamV3.connect(user2).withdrawFromStreamByTokenId(100000, 0);
+
+    user2ERC20Balace = await instanceTESTERC20.balanceOf(user2.address);
+    console.log("user2 ERC20 Balance after withdraw: ", hre.ethers.utils.formatEther(user2ERC20Balace.toString()));
 
     tokenAvailableBalance = await instanceStreamV3.availableBalanceForTokenId(100000, 0);
     console.log("token #0 Available Balance: ", hre.ethers.utils.formatEther(tokenAvailableBalance.toString()));
