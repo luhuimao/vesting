@@ -69,7 +69,7 @@ async function main() {
     let blocktimestamp = (await hre.ethers.provider.getBlock("latest")).timestamp;
     console.log(colors.magenta(`current timestamp: ${blocktimestamp.toString()}`));
 
-    const startTime = blocktimestamp + 20;
+    const startTime = blocktimestamp + 30;
     const stopTime = startTime + 50;
 
     /*****************************************************************************************/
@@ -165,6 +165,10 @@ async function main() {
     console.log("allocation share: ", hre.ethers.utils.formatEther(allocInfo.share));
     console.log("allocation size: ", allocInfo.size.toString());
 
+
+    let allocations = await instanceStreamV3.getAllAllocations(100000);
+    console.log("stream allocations: ", allocations);
+
     /*****************************************************************************************/
     /********************************user2 mint Batch By StreamId********************************/
     /*****************************************************************************************/
@@ -186,7 +190,7 @@ async function main() {
     console.log("##############################revoke#################################");
     ownerERC20Balance = await instanceTESTERC20.balanceOf(owner.address);
     console.log(`Owner TestERC20 Balance before revoke: ${hre.ethers.utils.formatEther(ownerERC20Balance.toString())}`);
-    await instanceStreamV3.revokeStream(100000, 600);
+    await instanceStreamV3.revokeStream(100000, 600, 100);
     ownerERC20Balance = await instanceTESTERC20.balanceOf(owner.address);
     console.log(`Owner TestERC20 Balance after revoke: ${hre.ethers.utils.formatEther(ownerERC20Balance.toString())}`);
     // let allocInfo = await instanceStreamV3.getAllocationInfo(100000, 0);
@@ -194,6 +198,11 @@ async function main() {
     console.log("token #600 revoked:", revoked);
     revoked = await instanceStreamV3.checkIfRevoked(100000, 600);
     console.log("token #699 revoked:", revoked);
+
+    await instanceStreamV3.revokeStream(100000, 600, 100);
+    ownerERC20Balance = await instanceTESTERC20.balanceOf(owner.address);
+    console.log(`Owner TestERC20 Balance after second revoke: ${hre.ethers.utils.formatEther(ownerERC20Balance.toString())}`);
+
 
     /*****************************************************************************************/
     /*****************************************token #0 balance********************************/

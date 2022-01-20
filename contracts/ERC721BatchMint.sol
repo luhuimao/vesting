@@ -23,7 +23,7 @@ contract ERC721BatchMint is ERC721Enumerable {
         uint256 startIndex,
         address receiver
     ) external {
-        (, uint256 alloSize, , ) = StreamV3(_streamV3).getAllocationInfo(
+        (, uint256 alloSize, ) = StreamV3(_streamV3).getAllocationInfo(
             streamId,
             startIndex
         );
@@ -50,5 +50,21 @@ contract ERC721BatchMint is ERC721Enumerable {
 
     function exists(uint256 tokenId) external view returns (bool) {
         return _exists(tokenId);
+    }
+
+    function unmintTokenAmount(
+        address _streamV3,
+        uint256 streamId,
+        uint256 startIndex
+    ) external view returns (uint256 unmintedAmount) {
+        (, uint256 alloSize, ) = StreamV3(_streamV3).getAllocationInfo(
+            streamId,
+            startIndex
+        );
+        for (uint256 i = startIndex; i < startIndex.add(alloSize); i++) {
+            if (!_exists(i)) {
+                unmintedAmount += 1;
+            }
+        }
     }
 }

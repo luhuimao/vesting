@@ -1,24 +1,25 @@
 // SPDX-License-Identifier: MIT
-// pragma solidity =0.5.17;
 pragma solidity ^0.8.0;
-// import "../openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "../openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "../openzeppelin/contracts/utils/math/SafeMath.sol";
 import "hardhat/console.sol";
 
 library TokenAllocation {
     using SafeMath for uint256;
+    using EnumerableSet for EnumerableSet.UintSet;
 
     uint256 public constant maxAllocationSize = 200;
     struct TokenIdAllocation {
         uint256 share;
         uint256 size;
         uint256 ratePerSecond;
-        bool isActived;
+        EnumerableSet.UintSet revokedTokenIds;
+        // bool isActived;
         mapping(uint256 => bool) tokenIsRevoked;
     }
 
     function checkIfRevoked(TokenIdAllocation storage ta, uint256 tokenId)
-        external
+        public
         view
         returns (bool)
     {
@@ -29,6 +30,7 @@ library TokenAllocation {
         internal
         returns (bool)
     {
+        ta.revokedTokenIds.add(tokenId);
         ta.tokenIsRevoked[tokenId] = true;
         return true;
     }
@@ -37,13 +39,13 @@ library TokenAllocation {
         return maxAllocationSize;
     }
 
-    function revokeAllocation(TokenIdAllocation storage ta)
-        internal
-        returns (bool)
-    {
-        ta.isActived = false;
-        return true;
-    }
+    // function revokeAllocation(TokenIdAllocation storage ta)
+    //     internal
+    //     returns (bool)
+    // {
+    //     ta.isActived = false;
+    //     return true;
+    // }
 
     function getTokenRate(TokenIdAllocation storage ta, uint256 tokenId)
         internal
@@ -73,7 +75,7 @@ library TokenAllocation {
         if (
             tokenId >= startIndex &&
             tokenId < startIndex.add(ta.size) &&
-            ta.isActived == true &&
+            // ta.isActived == true &&
             !ta.tokenIsRevoked[tokenId]
         ) {
             return true;
@@ -81,11 +83,11 @@ library TokenAllocation {
         return false;
     }
 
-    function checkIfActive(TokenIdAllocation storage ta)
-        internal
-        view
-        returns (bool)
-    {
-        return ta.isActived;
-    }
+    // function checkIfActive(TokenIdAllocation storage ta)
+    //     internal
+    //     view
+    //     returns (bool)
+    // {
+    //     return ta.isActived;
+    // }
 }
