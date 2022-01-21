@@ -11,21 +11,28 @@ interface IVestingV3 {
      */
     event CreateStream(
         uint256 indexed streamId,
-        address indexed sender
-        // uint256 deposit,
-        // address tokenAddress,
-        // uint256 startTime,
-        // uint256 stopTime,
-        // address erc721Address
+        address indexed sender,
+        address tokenAddress,
+        uint256 startTime,
+        uint256 stopTime,
+        address erc721Address
+    );
+
+    event AllocateTokenId(
+        uint256 indexed streamId,
+        uint256 startIndex,
+        uint256 allocateSize,
+        uint256 nftShare
+    );
+
+    event RevokeAllocation(
+        uint256 indexed streamId,
+        uint256 startIndex,
+        uint256 revokeAmount
     );
     /**
-     * @notice Emits when the recipient of a stream2 withdraws a portion or all their pro rata share of the stream.
+     * @notice Emits when the recipient of a stream withdraws a portion or all their pro rata share of the stream.
      */
-    event WithdrawFromStream(
-        uint256 indexed stream2Id,
-        address indexed recipient,
-        uint256 amount
-    );
 
     event WithdrawAllFromStream(
         uint256 indexed streamId,
@@ -41,11 +48,6 @@ interface IVestingV3 {
     );
 
     event SenderWithdraw(uint256 indexed streamId, uint256 amount);
-
-    // function balanceOf(uint256 stream2Id, address who)
-    //     external
-    //     view
-    //     returns (uint256 balance);
 
     function getStreamInfo(uint256 streamId)
         external

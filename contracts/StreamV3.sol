@@ -124,14 +124,12 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
             uint256 size,
             uint256 ratePerSecond
         )
-    // bool isActived
     {
         share = streams[streamId].tokenAllocations[startIndex].share;
         size = streams[streamId].tokenAllocations[startIndex].size;
         ratePerSecond = streams[streamId]
             .tokenAllocations[startIndex]
             .ratePerSecond;
-        // isActived = streams[streamId].tokenAllocations[startIndex].isActived;
     }
 
     /*
@@ -335,7 +333,14 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         /* Increment the next stream id. */
         nextStreamId = nextStreamId.add(uint256(1));
 
-        emit CreateStream(streamId, msg.sender);
+        emit CreateStream(
+            streamId,
+            msg.sender,
+            tokenAddress,
+            _uintArgs[2],
+            _uintArgs[1],
+            erc721Address
+        );
         return streamId;
     }
 
@@ -412,6 +417,13 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
                 _uint256ArgsNFTShares[cvars.i],
                 cvars.ratePerSecond
             );
+
+            emit AllocateTokenId(
+                streamId,
+                lastAllocation,
+                _uint256ArgsAllocateAmount[cvars.i],
+                _uint256ArgsNFTShares[cvars.i]
+            );
             lastAllocation += TokenAllocation.getMaxAllocationSize();
         }
 
@@ -450,30 +462,51 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         uint256 revokeAmount
     ) external returns (bool) {
         require(msg.sender == streams[streamId].sender, "only stream sender");
-        // uint256 unmintedTokenAmount = ERC721BatchMint(erc721Address)
-        //     .unmintTokenAmount(address(this), streamId, startIndex);
+
+        // console.log(
+        //     "Contract Log => unmintedTokenAmount: ",
+        //     unmintedTokenAmount
+        // );
         uint256 revokedAmount = streams[streamId]
             .tokenAllocations[startIndex]
             .revokedTokenIds
             .length();
+
+        uint256 unmintedTokenAmount = ERC721BatchMint(erc721Address)
+            .unmintTokenAmount(
+                startIndex,
+                streams[streamId].tokenAllocations[startIndex].size
+            );
         require(
-            revokeAmount <=
+            unmintedTokenAmount > 0 &&
+                streams[streamId].tokenAllocations[startIndex].size.sub(
+                    revokedAmount
+                ) >
+                0,
+            "revokable token amount is zero"
+        );
+
+        require(
+            revokeAmount <= unmintedTokenAmount &&
+                revokeAmount <=
                 streams[streamId].tokenAllocations[startIndex].size.sub(
                     revokedAmount
                 ),
-            "revoke amount can't greater than unrevoked size"
+            "revoke amount can't greater than revokable size"
         );
-        // require(
-        //     revokeAmount <= unmintedTokenAmount,
-        //     "revoke amount can't greater than unminted token amount"
-        // );
+
         uint256 exactRevokedAmount = 0;
 
         for (
             uint256 i = startIndex.add(revokedAmount);
-            i < startIndex.add(revokedAmount).add(revokeAmount);
+            i <
+            startIndex.add(streams[streamId].tokenAllocations[startIndex].size);
             i++
         ) {
+            if (exactRevokedAmount >= revokeAmount) {
+                break;
+            }
+
             // token i hasn't been minted && unrevoked
             if (
                 !ERC721BatchMint(erc721Address).exists(i) &&
@@ -485,6 +518,11 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
                 exactRevokedAmount += 1;
             }
         }
+
+        require(
+            exactRevokedAmount == revokeAmount,
+            "revoke amount exceeds revokable amount"
+        );
 
         require(
             streams[streamId].remainingBalance >=
@@ -506,6 +544,8 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
                 streams[streamId].tokenAllocations[startIndex].share
             )
         );
+
+        emit RevokeAllocation(streamId, startIndex, exactRevokedAmount);
 
         return true;
     }

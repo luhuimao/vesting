@@ -7,6 +7,8 @@ import "./openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "./openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./StreamV3.sol";
 
+// import "hardhat/console.sol";
+
 contract ERC721BatchMint is ERC721Enumerable {
     using SafeMath for uint256;
 
@@ -52,16 +54,12 @@ contract ERC721BatchMint is ERC721Enumerable {
         return _exists(tokenId);
     }
 
-    function unmintTokenAmount(
-        address _streamV3,
-        uint256 streamId,
-        uint256 startIndex
-    ) external view returns (uint256 unmintedAmount) {
-        (, uint256 alloSize, ) = StreamV3(_streamV3).getAllocationInfo(
-            streamId,
-            startIndex
-        );
-        for (uint256 i = startIndex; i < startIndex.add(alloSize); i++) {
+    function unmintTokenAmount(uint256 startIndex, uint256 size)
+        external
+        view
+        returns (uint256 unmintedAmount)
+    {
+        for (uint256 i = startIndex; i < startIndex.add(size); i++) {
             if (!_exists(i)) {
                 unmintedAmount += 1;
             }

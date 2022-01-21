@@ -14,8 +14,7 @@ library TokenAllocation {
         uint256 size;
         uint256 ratePerSecond;
         EnumerableSet.UintSet revokedTokenIds;
-        // bool isActived;
-        mapping(uint256 => bool) tokenIsRevoked;
+        // mapping(uint256 => bool) tokenIsRevoked;
     }
 
     function checkIfRevoked(TokenIdAllocation storage ta, uint256 tokenId)
@@ -23,7 +22,8 @@ library TokenAllocation {
         view
         returns (bool)
     {
-        return ta.tokenIsRevoked[tokenId];
+        return ta.revokedTokenIds.contains(tokenId);
+        // return ta.tokenIsRevoked[tokenId];
     }
 
     function revokeToken(TokenIdAllocation storage ta, uint256 tokenId)
@@ -31,21 +31,13 @@ library TokenAllocation {
         returns (bool)
     {
         ta.revokedTokenIds.add(tokenId);
-        ta.tokenIsRevoked[tokenId] = true;
+        // ta.tokenIsRevoked[tokenId] = true;
         return true;
     }
 
     function getMaxAllocationSize() public pure returns (uint256) {
         return maxAllocationSize;
     }
-
-    // function revokeAllocation(TokenIdAllocation storage ta)
-    //     internal
-    //     returns (bool)
-    // {
-    //     ta.isActived = false;
-    //     return true;
-    // }
 
     function getTokenRate(TokenIdAllocation storage ta, uint256 tokenId)
         internal
@@ -75,19 +67,10 @@ library TokenAllocation {
         if (
             tokenId >= startIndex &&
             tokenId < startIndex.add(ta.size) &&
-            // ta.isActived == true &&
-            !ta.tokenIsRevoked[tokenId]
+            !ta.revokedTokenIds.contains(tokenId)
         ) {
             return true;
         }
         return false;
     }
-
-    // function checkIfActive(TokenIdAllocation storage ta)
-    //     internal
-    //     view
-    //     returns (bool)
-    // {
-    //     return ta.isActived;
-    // }
 }

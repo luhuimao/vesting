@@ -241,11 +241,11 @@ let main = async () => {
 
     // await boutils.Sleep(10000);
 
-    await getVestingInfo(100002);
-    await getlastAllocation();
-    await getAllocationInfo(100002, 1200);
+    // await getVestingInfo(100002);
+    // await getlastAllocation();
+    // await getAllocationInfo(100002, 1200);
 
-    await mintNFT("0xCea5E66bec5193e5eC0b049a3Fe5d7Dd896fD480");
+    // await mintNFT("0xCea5E66bec5193e5eC0b049a3Fe5d7Dd896fD480");
     /*****************************************************************************************/
     /************************************************create StreamV3*****************************/
     /*****************************************************************************************/
@@ -368,8 +368,6 @@ async function getAllocationInfo(streamId: number, startIndex: number) {
     console.log("allcInfo.share: ", hre.ethers.utils.formatEther(allcInfo.share.toString()));
     console.log("allcInfo.size: ", allcInfo.size.toString());
     console.log("allcInfo.ratePerSecond: ", hre.ethers.utils.formatEther(allcInfo.ratePerSecond.toString()));
-    console.log("allcInfo.isActived: ", allcInfo.isActived);
-
 }
 
 async function mintNFT(receiver: string) {

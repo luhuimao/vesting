@@ -69,7 +69,7 @@ async function main() {
     let blocktimestamp = (await hre.ethers.provider.getBlock("latest")).timestamp;
     console.log(colors.magenta(`current timestamp: ${blocktimestamp.toString()}`));
 
-    const startTime = blocktimestamp + 9;
+    const startTime = blocktimestamp + 8;
     const stopTime = startTime + 50;
 
     /*****************************************************************************************/
@@ -97,19 +97,16 @@ async function main() {
 
 
     allocInfo = await instanceStreamV3.getAllocationInfo(100000, 0);
-    console.log("allocation 0-199 isActived: ", allocInfo.isActived);
     console.log("allocation share: ", hre.ethers.utils.formatEther(allocInfo.share));
     console.log("allocation size: ", allocInfo.size.toString());
     console.log("allocation ratePerSecond: ", hre.ethers.utils.formatEther(allocInfo.ratePerSecond));
 
     allocInfo = await instanceStreamV3.getAllocationInfo(100000, 200);
-    console.log("allocation 200-399 isActived: ", allocInfo.isActived);
     console.log("allocation ratePerSecond: ", hre.ethers.utils.formatEther(allocInfo.ratePerSecond));
     console.log("allocation share: ", hre.ethers.utils.formatEther(allocInfo.share));
     console.log("allocation size: ", allocInfo.size.toString());
 
     allocInfo = await instanceStreamV3.getAllocationInfo(100000, 400);
-    console.log("allocation 400-599 isActived: ", allocInfo.isActived);
     console.log("allocation ratePerSecond: ", hre.ethers.utils.formatEther(allocInfo.ratePerSecond));
     console.log("allocation share: ", hre.ethers.utils.formatEther(allocInfo.share));
     console.log("allocation size: ", allocInfo.size.toString());
@@ -154,13 +151,11 @@ async function main() {
 
 
     allocInfo = await instanceStreamV3.getAllocationInfo(100000, 600);
-    console.log("allocation 600-799 isActived: ", allocInfo.isActived);
     console.log("allocation share: ", hre.ethers.utils.formatEther(allocInfo.share));
     console.log("allocation size: ", allocInfo.size.toString());
     console.log("allocation ratePerSecond: ", hre.ethers.utils.formatEther(allocInfo.ratePerSecond));
 
     allocInfo = await instanceStreamV3.getAllocationInfo(100000, 800);
-    console.log("allocation 800-999 isActived: ", allocInfo.isActived);
     console.log("allocation ratePerSecond: ", hre.ethers.utils.formatEther(allocInfo.ratePerSecond));
     console.log("allocation share: ", hre.ethers.utils.formatEther(allocInfo.share));
     console.log("allocation size: ", allocInfo.size.toString());
@@ -195,10 +190,11 @@ async function main() {
     console.log("pool remaining Balance before revoke: ", hre.ethers.utils.formatEther(streamInfo.remainingBalance.toString()));
 
     await instanceStreamV3.revokeStream(100000, 600, 50);
+    console.log("nfts 600-649 revoked........................");
+
     ownerERC20Balance = await instanceTESTERC20.balanceOf(owner.address);
     console.log(`Owner TestERC20 Balance after revoke: ${hre.ethers.utils.formatEther(ownerERC20Balance.toString())}`);
     // let allocInfo = await instanceStreamV3.getAllocationInfo(100000, 0);
-
     streamInfo = await instanceStreamV3.getStreamInfo(100000);
     console.log("pool remaining Balance after revoke: ", hre.ethers.utils.formatEther(streamInfo.remainingBalance.toString()));
 
@@ -207,26 +203,44 @@ async function main() {
     revoked = await instanceStreamV3.checkIfRevoked(100000, 699);
     console.log("token #699 revoked:", revoked);
 
-    await instanceStreamV3.revokeStream(100000, 600, 50);
+    console.log("mint token #650......");
+    await instanceERC721BatchMint.mint(650, owner.address);
+    console.log("token #650 minted.....");
+
+    await instanceStreamV3.revokeStream(100000, 600, 49);
+    console.log("nfts 651-699 revoked........................");
 
     streamInfo = await instanceStreamV3.getStreamInfo(100000);
     console.log("pool remaining Balance after second revoke: ", hre.ethers.utils.formatEther(streamInfo.remainingBalance.toString()));
+
+    revoked = await instanceStreamV3.checkIfRevoked(100000, 650);
+    console.log("token #650 revoked:", revoked);
+
+    revoked = await instanceStreamV3.checkIfRevoked(100000, 651);
+    console.log("token #651 revoked:", revoked);
 
     revoked = await instanceStreamV3.checkIfRevoked(100000, 699);
     console.log("token #699 revoked:", revoked);
     ownerERC20Balance = await instanceTESTERC20.balanceOf(owner.address);
     console.log(`Owner TestERC20 Balance after second revoke: ${hre.ethers.utils.formatEther(ownerERC20Balance.toString())}`);
 
+    console.log("mint token #699......");
+    await instanceERC721BatchMint.mint(699, owner.address);
+    console.log("token #699 minted.....");
+    let tokenAvailableBalance = await instanceStreamV3.availableBalanceForTokenId(100000, 699);
+    console.log("token #699 Available Balance: ", hre.ethers.utils.formatEther(tokenAvailableBalance.toString()));
 
+    let tokenRemainingBalance = await instanceStreamV3.remainingBalanceByTokenId(100000, 699);
+    console.log("token #699 Remaining Balance: ", hre.ethers.utils.formatEther(tokenRemainingBalance.toString()));
     /*****************************************************************************************/
     /*****************************************token #0 balance********************************/
     /*****************************************************************************************/
     blocktimestamp = (await hre.ethers.provider.getBlock("latest")).timestamp;
     console.log(colors.magenta(`current timestamp: ${blocktimestamp.toString()}`));
-    let tokenAvailableBalance = await instanceStreamV3.availableBalanceForTokenId(100000, 0);
+    tokenAvailableBalance = await instanceStreamV3.availableBalanceForTokenId(100000, 0);
     console.log("token #0 Available Balance: ", hre.ethers.utils.formatEther(tokenAvailableBalance.toString()));
 
-    let tokenRemainingBalance = await instanceStreamV3.remainingBalanceByTokenId(100000, 0);
+    tokenRemainingBalance = await instanceStreamV3.remainingBalanceByTokenId(100000, 0);
     console.log("token #0 Remaining Balance: ", hre.ethers.utils.formatEther(tokenRemainingBalance.toString()));
 
 
@@ -337,7 +351,7 @@ async function main() {
     /*****************************************************************************************/
     /*******************************sender withdraw******************************************/
     /*****************************************************************************************/
-    for (var i = 0; i < 20; i++) {
+    for (var i = 0; i < 30; i++) {
         await instanceTESTERC20.transfer(user1.address, 1);
         await instanceTESTERC20.connect(user1).transfer(owner.address, 1);
     }
