@@ -1,0 +1,57 @@
+type AllocationsEntity @entity {
+  id: ID!
+  count: BigInt!
+  streamId: BigInt! # uint256
+  startIndex: BigInt! # uint256
+  allocateSize: BigInt! # uint256
+  nftShare: BigInt! # uint256
+}
+
+type RevokedAllocationsEntity @entity {
+  id: ID!
+  count: BigInt!
+  streamId: BigInt! # uint256
+  startIndex: BigInt! # uint256
+  revokeAmount: BigInt! # uint256
+}
+
+
+type StreamEntity @entity {
+  id: ID!
+  count: BigInt!
+  streamId: BigInt! # uint256
+  startIndex: BigInt! # uint256
+  sender:String
+  tokenAddress:Bytes
+  startTime:BigInt! # uint256
+  stopTime:BigInt! # uint256
+  erc721Address:String
+}
+
+
+type ClaimedAllEntity @entity {
+  id: ID!
+  count: BigInt!
+  streamId: BigInt! # uint256
+  recipient: String
+  amount: BigInt! # uint256
+}
+
+type ClaimedByTokenIdEntity @entity {
+  id: ID!
+  count: BigInt!
+  streamId: BigInt! # uint256
+  recipient: String
+  tokenId: BigInt! # uint256
+  amount: BigInt! # uint256
+}
+
+
+type SenderWithdrawedEntity @entity {
+  id: ID!
+  count: BigInt!
+  streamId: BigInt! # uint256
+  amount: BigInt! # uint256
+}
+
+

@@ -1,0 +1,16 @@
+{
+  "name": "Vesting",
+  "license": "UNLICENSED",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "deploy": "graph deploy --node https://api.thegraph.com/deploy/ DAOSquare/Vesting",
+    "create-local": "graph create --node http://localhost:8020/ DAOSquare/Vesting",
+    "remove-local": "graph remove --node http://localhost:8020/ DAOSquare/Vesting",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 DAOSquare/Vesting"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "0.25.3",
+    "@graphprotocol/graph-ts": "0.24.1"
+  }
+}

@@ -1,0 +1,38 @@
+specVersion: 0.0.2
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: StreamV3
+    network: rinkeby
+    source:
+      address: "0x98daF269feBf67B277a5BA3CCED1c521abc1781C"
+      abi: StreamV3
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.5
+      language: wasm/assemblyscript
+      entities:
+        - AllocateTokenId
+        - CreateStream
+        - RevokeAllocation
+        - SenderWithdraw
+        - WithdrawAllFromStream
+        - WithdrawFromStreamByTokenId
+      abis:
+        - name: StreamV3
+          file: ./abis/StreamV3.json
+      eventHandlers:
+        - event: AllocateTokenId(indexed uint256,uint256,uint256,uint256)
+          handler: handleAllocateTokenId
+        - event: CreateStream(indexed uint256,indexed address,address,uint256,uint256,address)
+          handler: handleCreateStream
+        - event: RevokeAllocation(indexed uint256,uint256,uint256)
+          handler: handleRevokeAllocation
+        - event: SenderWithdraw(indexed uint256,uint256)
+          handler: handleSenderWithdraw
+        - event: WithdrawAllFromStream(indexed uint256,indexed address,uint256)
+          handler: handleWithdrawAllFromStream
+        - event: WithdrawFromStreamByTokenId(indexed uint256,indexed address,uint256,uint256)
+          handler: handleWithdrawFromStreamByTokenId
+      file: ./src/mapping.ts
