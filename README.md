@@ -42,26 +42,37 @@ npx hardhat help
 ```
 ## get available balance by tokenId
 ```
-instanceStreamV3.availableBalanceForTokenId(int steramId, int tokenId);
+instanceStreamV3.availableBalanceForTokenId(int streamId, int tokenId);
 ```
     
 ## get remaining balance by tokenId
 ```
-instanceStreamV3.remainingBalanceByTokenId(int steramId, int tokenId);
+instanceStreamV3.remainingBalanceByTokenId(int streamId, int tokenId);
 ```
 ## withdraw by tokenId
 ```
-instanceStreamV3.withdrawFromStreamByTokenId(int steramId, int tokenId);
+instanceStreamV3.withdrawFromStreamByTokenId(int streamId, int tokenId);
 ```
 ## withdraw all
 ```
-instanceStreamV3.withdrawAllFromStream(int steramId, int[] tokenIds);
+instanceStreamV3.withdrawAllFromStream(int streamId, int[] tokenIds);
 ```
 ## sender Withdraw
 ```
-instanceStreamV3.senderWithdrawFromStream(int steramId);
+instanceStreamV3.senderWithdrawFromStream(int streamId);
 ```
 
+## revoke
+```
+instanceStreamV3.revokeStream(int streamId, int startIndex, int revokeAmount)
+```
+
+## check tokenId if included
+```
+instanceStreamV3.checkTokenId(int streamId, int tokenId)
+
+```
+return true if included in stream of streamId
 
 ## StreamV3 deployed Address:
-Rinkeby 0x8b201D78c8C2d1b06e9144CA73baBff013AfEcE0
+Rinkeby 0x53E717AEEfCddF7013DFD9B63385b970836a85f9
