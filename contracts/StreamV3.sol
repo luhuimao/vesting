@@ -253,6 +253,17 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         return streams[streamId].allocations.values();
     }
 
+    function checkTokenId(uint256 streamId, uint256 tokenId)
+        external
+        view
+        returns (bool)
+    {
+        return
+            streams[streamId]
+                .tokenAllocations[tokenId.getAlloctionStart()]
+                .checkTokenId(tokenId);
+    }
+
     /*** Public Effects & Interactions Functions ***/
 
     struct CreateStreamLocalVars {
@@ -292,7 +303,7 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         address tokenAddress,
         uint256[] calldata _uint256ArgsAllocateAmount,
         uint256[] calldata _uint256ArgsNFTShares
-    ) external returns (uint256) {
+    ) external nonReentrant returns (uint256) {
         // CreateStreamLocalVars memory cvars;
         require(
             _uintArgs[1] >= block.timestamp,
@@ -329,18 +340,17 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
                 _uint256ArgsNFTShares
             );
         }
-
-        /* Increment the next stream id. */
-        nextStreamId = nextStreamId.add(uint256(1));
-
         emit CreateStream(
             streamId,
             msg.sender,
             tokenAddress,
-            _uintArgs[2],
             _uintArgs[1],
+            _uintArgs[2],
             erc721Address
         );
+        /* Increment the next stream id. */
+        nextStreamId = nextStreamId.add(uint256(1));
+
         return streamId;
     }
 
@@ -349,7 +359,7 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         uint256 deposit,
         uint256[] calldata _uint256ArgsAllocateAmount,
         uint256[] calldata _uint256ArgsNFTShares
-    ) external returns (bool) {
+    ) external nonReentrant returns (bool) {
         require(
             streams[streamId].startTime > block.timestamp,
             "Stream Has Already Started"
@@ -460,13 +470,17 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         uint256 streamId,
         uint256 startIndex,
         uint256 revokeAmount
-    ) external returns (bool) {
+    ) external nonReentrant streamExists(streamId) returns (bool) {
         require(msg.sender == streams[streamId].sender, "only stream sender");
 
         // console.log(
         //     "Contract Log => unmintedTokenAmount: ",
         //     unmintedTokenAmount
         // );
+        require(
+            streams[streamId].allocations.contains(startIndex),
+            "start index invalid"
+        );
         uint256 revokedAmount = streams[streamId]
             .tokenAllocations[startIndex]
             .revokedTokenIds
@@ -474,7 +488,7 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
 
         uint256 unmintedTokenAmount = ERC721BatchMint(erc721Address)
             .unmintTokenAmount(
-                startIndex,
+                startIndex.add(revokedAmount),
                 streams[streamId].tokenAllocations[startIndex].size
             );
         require(

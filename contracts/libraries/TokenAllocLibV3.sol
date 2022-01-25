@@ -14,7 +14,6 @@ library TokenAllocation {
         uint256 size;
         uint256 ratePerSecond;
         EnumerableSet.UintSet revokedTokenIds;
-        // mapping(uint256 => bool) tokenIsRevoked;
     }
 
     function checkIfRevoked(TokenIdAllocation storage ta, uint256 tokenId)
@@ -23,7 +22,6 @@ library TokenAllocation {
         returns (bool)
     {
         return ta.revokedTokenIds.contains(tokenId);
-        // return ta.tokenIsRevoked[tokenId];
     }
 
     function revokeToken(TokenIdAllocation storage ta, uint256 tokenId)
@@ -31,7 +29,6 @@ library TokenAllocation {
         returns (bool)
     {
         ta.revokedTokenIds.add(tokenId);
-        // ta.tokenIsRevoked[tokenId] = true;
         return true;
     }
 
