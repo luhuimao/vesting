@@ -44,7 +44,8 @@ interface IVestingV3 {
         uint256 indexed streamId,
         address indexed recipient,
         uint256 tokenId,
-        uint256 amount
+        uint256 amount,
+        uint256 remaining
     );
 
     event SenderWithdraw(uint256 indexed streamId, uint256 amount);
@@ -70,7 +71,7 @@ interface IVestingV3 {
         external
         returns (bool);
 
-    function senderWithdrawFromStream(uint256 streamId) external returns (bool);
+    // function senderWithdrawFromStream(uint256 streamId) external returns (bool);
 
     // function withdrawFromStream(uint256 stream2Id) external returns (bool);
 

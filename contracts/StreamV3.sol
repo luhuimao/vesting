@@ -275,6 +275,7 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         uint256 allAvailableBalance;
         uint256 i;
         uint256 streamAmount;
+        uint256 tokenid;
     }
 
     /*
@@ -359,7 +360,7 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         uint256 deposit,
         uint256[] calldata _uint256ArgsAllocateAmount,
         uint256[] calldata _uint256ArgsNFTShares
-    ) external nonReentrant returns (bool) {
+    ) external streamExists(streamId) nonReentrant returns (bool) {
         require(
             streams[streamId].startTime > block.timestamp,
             "Stream Has Already Started"
@@ -442,12 +443,6 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
             "ERROR: Deposit Amount Insufficient"
         );
 
-        // console.log("Contract Log =>  vars.duration ", vars.duration);
-
-        // console.log("Contract Log =>  vars.totalDuration ", vars.totalDuration);
-
-        // console.log("Contract Log =>  vars.ratePerSecond ", vars.ratePerSecond);
-
         IERC20(tokenAddress).safeTransferFrom(
             msg.sender,
             address(this),
@@ -471,95 +466,92 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         uint256 startIndex,
         uint256 revokeAmount
     ) external nonReentrant streamExists(streamId) returns (bool) {
-        require(msg.sender == streams[streamId].sender, "only stream sender");
+        StreamLibV3.VestingV3 storage stream = streams[streamId];
+        require(revokeAmount > 0, "revoke amount must greater than 0");
+        require(msg.sender == stream.sender, "only stream sender");
 
-        // console.log(
-        //     "Contract Log => unmintedTokenAmount: ",
-        //     unmintedTokenAmount
-        // );
-        require(
-            streams[streamId].allocations.contains(startIndex),
-            "start index invalid"
-        );
-        uint256 revokedAmount = streams[streamId]
+        require(stream.allocations.contains(startIndex), "start index invalid");
+        // CreateStreamLocalVars memory cvars;
+        BalanceOfLocalVars memory bvars;
+
+        // revoked amount
+        bvars.withdrawalAmount = stream
             .tokenAllocations[startIndex]
             .revokedTokenIds
             .length();
 
-        uint256 unmintedTokenAmount = ERC721BatchMint(erc721Address)
-            .unmintTokenAmount(
-                startIndex.add(revokedAmount),
-                streams[streamId].tokenAllocations[startIndex].size
-            );
+        // allocation size of startIndex
+        bvars.individualBalance = stream.tokenAllocations[startIndex].size;
+
+        // nft share of startIndex
+        bvars.recipientBalance = stream.tokenAllocations[startIndex].share;
+
+        // unminted Token Amount
+        bvars.j = ERC721BatchMint(erc721Address).unmintTokenAmount(
+            startIndex.add(bvars.withdrawalAmount),
+            bvars.individualBalance
+        );
+
+        // unrevoked amount
+        bvars.senderBalance = bvars.individualBalance.sub(
+            bvars.withdrawalAmount
+        );
+
         require(
-            unmintedTokenAmount > 0 &&
-                streams[streamId].tokenAllocations[startIndex].size.sub(
-                    revokedAmount
-                ) >
-                0,
+            bvars.j > 0 && bvars.senderBalance > 0,
             "revokable token amount is zero"
         );
 
         require(
-            revokeAmount <= unmintedTokenAmount &&
-                revokeAmount <=
-                streams[streamId].tokenAllocations[startIndex].size.sub(
-                    revokedAmount
-                ),
+            revokeAmount <= bvars.j && revokeAmount <= bvars.senderBalance,
             "revoke amount can't greater than revokable size"
         );
 
-        uint256 exactRevokedAmount = 0;
+        bvars.counter = 0;
 
         for (
-            uint256 i = startIndex.add(revokedAmount);
-            i <
-            startIndex.add(streams[streamId].tokenAllocations[startIndex].size);
-            i++
+            bvars.i = startIndex.add(bvars.withdrawalAmount);
+            bvars.i < startIndex.add(bvars.individualBalance);
+            bvars.i++
         ) {
-            if (exactRevokedAmount >= revokeAmount) {
+            if (bvars.counter >= revokeAmount) {
                 break;
             }
 
             // token i hasn't been minted && unrevoked
             if (
-                !ERC721BatchMint(erc721Address).exists(i) &&
-                !streams[streamId].tokenAllocations[startIndex].checkIfRevoked(
-                    i
-                )
+                !ERC721BatchMint(erc721Address).exists(bvars.i) &&
+                !stream.tokenAllocations[startIndex].checkIfRevoked(bvars.i)
             ) {
-                streams[streamId].tokenAllocations[startIndex].revokeToken(i); //revoke token i
-                exactRevokedAmount += 1;
+                stream.tokenAllocations[startIndex].revokeToken(bvars.i); //revoke token i
+                bvars.counter += 1;
             }
         }
 
+        require(bvars.counter > 0, "revokable token amount is zero");
+
         require(
-            exactRevokedAmount == revokeAmount,
+            bvars.counter == revokeAmount,
             "revoke amount exceeds revokable amount"
         );
 
-        require(
-            streams[streamId].remainingBalance >=
-                exactRevokedAmount.mul(
-                    streams[streamId].tokenAllocations[startIndex].share
-                ),
-            "Revoke Error: Insufficient Balance"
-        );
-        streams[streamId].deposit -= exactRevokedAmount.mul(
-            streams[streamId].tokenAllocations[startIndex].share
-        );
-        streams[streamId].remainingBalance -= exactRevokedAmount.mul(
-            streams[streamId].tokenAllocations[startIndex].share
+        // require(
+        //     stream.remainingBalance >=
+        //         bvars.counter.mul(bvars.recipientBalance) &&
+        //         stream.deposit >= bvars.counter.mul(bvars.recipientBalance),
+        //     "Revoke Error: Insufficient Balance"
+        // );
+        streams[streamId].deposit -= bvars.counter.mul(bvars.recipientBalance);
+        streams[streamId].remainingBalance -= bvars.counter.mul(
+            bvars.recipientBalance
         );
 
-        IERC20(streams[streamId].tokenAddress).safeTransfer(
+        IERC20(stream.tokenAddress).safeTransfer(
             msg.sender,
-            exactRevokedAmount.mul(
-                streams[streamId].tokenAllocations[startIndex].share
-            )
+            bvars.counter.mul(bvars.recipientBalance)
         );
 
-        emit RevokeAllocation(streamId, startIndex, exactRevokedAmount);
+        emit RevokeAllocation(streamId, startIndex, bvars.counter);
 
         return true;
     }
@@ -579,60 +571,56 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
         StreamLibV3.VestingV3 storage stream = streams[streamId];
         CreateStreamLocalVars memory cvars;
         BalanceOfLocalVars memory bvars;
-
-        require(
-            block.timestamp < stream.stopTime,
-            "Withdraw Error: streaming is ends"
-        );
+        // require(
+        //     block.timestamp < stream.stopTime,
+        //     "Withdraw Error: streaming is ends"
+        // );
         if (tokenIds.length <= 0) {
             return false;
         }
+
         cvars.allAvailableBalance = 0;
         for (bvars.i = 0; bvars.i < tokenIds.length; bvars.i++) {
-            bvars.counter = 0;
-
+            cvars.tokenid = tokenIds[bvars.i];
             if (
                 stream
-                    .tokenAllocations[tokenIds[bvars.i].getAlloctionStart()]
-                    .checkTokenId(tokenIds[bvars.i]) &&
-                IERC721(stream.erc721Address).ownerOf(tokenIds[bvars.i]) ==
+                    .tokenAllocations[cvars.tokenid.getAlloctionStart()]
+                    .checkTokenId(cvars.tokenid) &&
+                IERC721(stream.erc721Address).ownerOf(cvars.tokenid) ==
                 msg.sender &&
                 !effectedTokenIds[block.timestamp][msg.sender].contains(
-                    tokenIds[bvars.i]
+                    cvars.tokenid
                 )
             ) {
-                // console.log(
-                //     "contract log withdrawAllFromStream => satisfied nft address: ",
-                //     erc721Address,
-                //     " satisfied tokenId: ",
-                //     tokenIds[bvars.i]
-                // );
                 effectedTokenIds[block.timestamp][msg.sender].add(
-                    tokenIds[bvars.i]
-                );
-                // console.log(
-                //     "contract log withdrawAllFromStream => effectedTokenIds length: ",
-                //     effectedTokenIds[block.timestamp].length()
-                // );
-                bvars.individualBalance = availableBalanceForTokenId(
-                    streamId,
-                    tokenIds[bvars.i]
+                    cvars.tokenid
                 );
 
-                // console.log(
-                //     "contract log withdrawAllFromStream => individualBalance: ",
-                //     bvars.individualBalance
-                // );
+                bvars.individualBalance = availableBalanceForTokenId(
+                    streamId,
+                    cvars.tokenid
+                );
+
                 cvars.allAvailableBalance += bvars.individualBalance;
                 streams[streamId].NFTTokenIdWithdrawalAmount[
-                    tokenIds[bvars.i]
+                    cvars.tokenid
                 ] += bvars.individualBalance;
-                // console.log(
-                //     "contract log withdrawAllFromStream => NFTTokenIdWithdrawalAmount: ",
-                //     streams1[streamId].NFTTokenIdWithdrawalAmount[
-                //         tokenIds[bvars.j]
-                //     ]
-                // );
+                {
+                    emit WithdrawFromStreamByTokenId(
+                        streamId,
+                        msg.sender,
+                        cvars.tokenid,
+                        bvars.individualBalance,
+                        stream
+                            .tokenAllocations[cvars.tokenid.getAlloctionStart()]
+                            .share
+                            .sub(
+                                streams[streamId].NFTTokenIdWithdrawalAmount[
+                                    cvars.tokenid
+                                ]
+                            )
+                    );
+                }
             }
 
             delete effectedTokenIds[block.timestamp][msg.sender];
@@ -649,30 +637,10 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
             cvars.allAvailableBalance
         );
 
-        cvars.vaultRemainingBalance = IERC20(stream.tokenAddress).balanceOf(
-            address(this)
+        IERC20(stream.tokenAddress).safeTransfer(
+            msg.sender,
+            cvars.allAvailableBalance
         );
-        if (cvars.allAvailableBalance > cvars.vaultRemainingBalance) {
-            IERC20(stream.tokenAddress).safeTransfer(
-                msg.sender,
-                cvars.vaultRemainingBalance
-            );
-            emit WithdrawAllFromStream(
-                streamId,
-                msg.sender,
-                cvars.vaultRemainingBalance
-            );
-        } else {
-            IERC20(stream.tokenAddress).safeTransfer(
-                msg.sender,
-                cvars.allAvailableBalance
-            );
-            emit WithdrawAllFromStream(
-                streamId,
-                msg.sender,
-                cvars.allAvailableBalance
-            );
-        }
 
         return true;
     }
@@ -695,17 +663,12 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
     {
         StreamLibV3.VestingV3 storage stream = streams[streamId];
         BalanceOfLocalVars memory vars;
-        require(
-            block.timestamp < stream.stopTime,
-            "Withdraw Error: streaming is ends"
-        );
-        // uint256[2] memory uint256Values = [streamId, tokenId];
+        // require(
+        //     block.timestamp < stream.stopTime,
+        //     "Withdraw Error: streaming is ends"
+        // );
 
-        vars.individualBalance = availableBalanceForTokenId(
-            streamId,
-            tokenId
-            // uint256Values
-        );
+        vars.individualBalance = availableBalanceForTokenId(streamId, tokenId);
         require(vars.individualBalance > 0, "withdrawable balance is zero");
 
         require(
@@ -716,88 +679,69 @@ contract StreamV3 is IVestingV3, ReentrancyGuard, CarefulMath {
             vars.individualBalance
         );
 
-        // if (streams1[streamId].remainingBalance == 0) delete streams1[streamId];
+        streams[streamId].NFTTokenIdWithdrawalAmount[tokenId] += vars
+            .individualBalance;
 
-        uint256 vaultRemainingBalance = IERC20(stream.tokenAddress).balanceOf(
-            address(this)
+        IERC20(stream.tokenAddress).safeTransfer(
+            msg.sender,
+            vars.individualBalance
         );
 
-        if (vars.individualBalance > vaultRemainingBalance) {
-            streams[streamId].NFTTokenIdWithdrawalAmount[
-                    tokenId
-                ] += vaultRemainingBalance;
-
-            IERC20(stream.tokenAddress).safeTransfer(
-                msg.sender,
-                vaultRemainingBalance
-            );
-            emit WithdrawFromStreamByTokenId(
-                streamId,
-                msg.sender,
-                tokenId,
-                vaultRemainingBalance
-            );
-        } else {
-            streams[streamId].NFTTokenIdWithdrawalAmount[tokenId] += vars
-                .individualBalance;
-
-            IERC20(stream.tokenAddress).safeTransfer(
-                msg.sender,
-                vars.individualBalance
-            );
-
-            emit WithdrawFromStreamByTokenId(
-                streamId,
-                msg.sender,
-                tokenId,
-                vars.individualBalance
-            );
-        }
+        emit WithdrawFromStreamByTokenId(
+            streamId,
+            msg.sender,
+            tokenId,
+            vars.individualBalance,
+            streams[streamId]
+                .tokenAllocations[tokenId.getAlloctionStart()]
+                .share
+                .sub(streams[streamId].NFTTokenIdWithdrawalAmount[tokenId])
+        );
 
         return true;
     }
 
-    function senderWithdrawFromStream(uint256 streamId)
-        external
-        override
-        nonReentrant
-        streamExists(streamId)
-        onlySender(streamId)
-        returns (bool)
-    {
-        StreamLibV3.VestingV3 storage stream = streams[streamId];
-        require(msg.sender == stream.sender, "only stream sender");
-        require(
-            block.timestamp >= stream.stopTime,
-            "Sender withdraw Error: block timestamp < stoptime"
-        );
+    // function senderWithdrawFromStream(uint256 streamId)
+    //     external
+    //     override
+    //     nonReentrant
+    //     streamExists(streamId)
+    //     onlySender(streamId)
+    //     returns (bool)
+    // {
+    //     StreamLibV3.VestingV3 storage stream = streams[streamId];
+    //     require(msg.sender == stream.sender, "only stream sender");
+    //     require(
+    //         block.timestamp >= stream.stopTime,
+    //         "Sender withdraw Error: block timestamp < stoptime"
+    //     );
 
-        require(
-            streams[streamId].remainingBalance > 0,
-            "ERROR: Stream Remaining Balance InSufficient"
-        );
+    //     require(
+    //         streams[streamId].remainingBalance > 0,
+    //         "ERROR: Stream Remaining Balance InSufficient"
+    //     );
 
-        // if (streams1[streamId].remainingBalance == 0) delete streams1[streamId];
+    //     // if (streams1[streamId].remainingBalance == 0) delete streams1[streamId];
 
-        uint256 vaultRemainingBalance = IERC20(stream.tokenAddress).balanceOf(
-            address(this)
-        );
-        if (streams[streamId].remainingBalance > vaultRemainingBalance) {
-            IERC20(stream.tokenAddress).safeTransfer(
-                msg.sender,
-                vaultRemainingBalance
-            );
-            emit SenderWithdraw(streamId, vaultRemainingBalance);
-        } else {
-            IERC20(stream.tokenAddress).safeTransfer(
-                msg.sender,
-                streams[streamId].remainingBalance
-            );
-            emit SenderWithdraw(streamId, streams[streamId].remainingBalance);
-        }
+    //     uint256 vaultRemainingBalance = IERC20(stream.tokenAddress).balanceOf(
+    //         address(this)
+    //     );
+    //     if (streams[streamId].remainingBalance > vaultRemainingBalance) {
+    //         IERC20(stream.tokenAddress).safeTransfer(
+    //             msg.sender,
+    //             vaultRemainingBalance
+    //         );
+    //         emit SenderWithdraw(streamId, vaultRemainingBalance);
+    //     } else {
+    //         IERC20(stream.tokenAddress).safeTransfer(
+    //             msg.sender,
+    //             streams[streamId].remainingBalance
+    //         );
+    //         emit SenderWithdraw(streamId, streams[streamId].remainingBalance);
+    //     }
 
-        streams[streamId].remainingBalance = 0;
+    //     streams[streamId].remainingBalance = 0;
 
-        return true;
-    }
+    //     return true;
+    // }
 }

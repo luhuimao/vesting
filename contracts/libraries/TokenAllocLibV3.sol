@@ -16,14 +16,6 @@ library TokenAllocation {
         EnumerableSet.UintSet revokedTokenIds;
     }
 
-    function checkIfRevoked(TokenIdAllocation storage ta, uint256 tokenId)
-        public
-        view
-        returns (bool)
-    {
-        return ta.revokedTokenIds.contains(tokenId);
-    }
-
     function revokeToken(TokenIdAllocation storage ta, uint256 tokenId)
         internal
         returns (bool)
@@ -53,6 +45,14 @@ library TokenAllocation {
         returns (uint256)
     {
         return tokenId.div(maxAllocationSize).mul(maxAllocationSize);
+    }
+
+    function checkIfRevoked(TokenIdAllocation storage ta, uint256 tokenId)
+        internal
+        view
+        returns (bool)
+    {
+        return ta.revokedTokenIds.contains(tokenId);
     }
 
     function checkTokenId(TokenIdAllocation storage ta, uint256 tokenId)
